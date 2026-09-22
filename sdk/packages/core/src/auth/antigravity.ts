@@ -21,9 +21,9 @@ import {
 import type { OAuthCredentials, OAuthLoginCallbacks } from "./types";
 import { isCredentialLikelyExpired } from "./utils";
 import {
-  ANTIGRAVITY_CLIENT_ID,
-  ANTIGRAVITY_CLOUDCODE_BASE,
-} from "../../../llms/src/providers/antigravity-protocol";
+	ANTIGRAVITY_CLIENT_ID,
+	ANTIGRAVITY_CLOUDCODE_BASE,
+} from "@cline/llms";
 
 export const ANTIGRAVITY_OAUTH_CONFIG = {
   tokenEndpoint: "https://oauth2.googleapis.com/token",

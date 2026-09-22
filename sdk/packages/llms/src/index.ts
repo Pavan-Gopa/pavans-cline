@@ -37,6 +37,7 @@ export {
 	ANTIGRAVITY_IDS,
 	isAntigravityModel,
 	getAllProviders,
+	GENERATED_CLINE_RECOMMENDED_MODELS,
 	getGeneratedModelsForProvider,
 	getGeneratedProviderModels,
 	getModelOverridesForProvider,
