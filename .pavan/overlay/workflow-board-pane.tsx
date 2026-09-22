@@ -177,7 +177,7 @@ export function WorkflowBoardPane(props: {
   workspace: string;
   io: PavanFileReader;
   onOpenProviders?: () => void;
-}): React.ReactElement {
+}): JSX.Element {
   const { snapshot, loading, error, reload, saveRole } = useWorkflowBoard(props.workspace, props.io);
   const [providers, setProviders] = useState<Array<{ id: string; name: string; configured: boolean }>>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);

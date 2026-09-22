@@ -694,6 +694,23 @@ export default function Home() {
 		},
 		[navigateWith],
 	);
+	// [+pavan] Workflow board file bridge: reads via pavan_read_workspace_files,
+	// roles writes via pavan_write_workflow_roles (sidecar/commands-pavan.ts).
+	// Stable identity ([]) so the pane never refetches on unrelated renders.
+	const pavanFileBridge = useMemo(
+		() => ({
+			readFile: async (absPath: string): Promise<string | null> => {
+				const res = await desktopClient.invoke<{
+					files: Record<string, string | null>;
+				}>("pavan_read_workspace_files", { paths: [absPath] });
+				return res.files[absPath] ?? null;
+			},
+			writeFile: async (_absPath: string, content: string): Promise<void> => {
+				await desktopClient.invoke("pavan_write_workflow_roles", { content });
+			},
+		}),
+		[],
+	);
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (showOnboarding) {
@@ -891,9 +908,15 @@ export default function Home() {
 							<SidebarTrigger className="absolute left-20 top-0 z-40 md:hidden" />
 							<WindowTitleBar />
 							<div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-								{/* [+pavan] Workflow board (Alt+W). */}
+								{/* [+pavan] Workflow board (Alt+W). Workspace = active thread's
+								environment path (history first), else local root. File bridge:
+								pavan_read_workspace_files / pavan_write_workflow_roles. */}
 								{view === "workflow" ? (
-									<WorkflowBoardPane />
+									<WorkflowBoardPane
+										workspace={historyWorkspacePaths[0] ?? ""}
+										io={pavanFileBridge}
+										onOpenProviders={() => handleSettingsSectionChange("API Providers")}
+									/>
 								) : view === "sessions" ? (
 									<SessionsView
 										activeSessionId={activeHistorySessionId}
