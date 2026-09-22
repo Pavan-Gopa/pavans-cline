@@ -26,7 +26,10 @@ export type ProviderFamily =
 	| "opencode"
 	| "dify"
 	| "ollama"
-	| "sap-ai-core";
+	| "sap-ai-core"
+	// [+pavan] subscription families: Grok OAuth + Antigravity (Cloud Code).
+	| "xai-oauth"
+	| "antigravity";
 
 export type ProviderApiLine = "china" | "international";
 

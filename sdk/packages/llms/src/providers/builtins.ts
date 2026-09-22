@@ -819,6 +819,32 @@ const OPENAI_COMPATIBLE_SPEC_OVERRIDES: BuiltinSpecOverride[] = [
 		apiKeyEnv: ["XAI_API_KEY"],
 		defaults: { baseUrl: "https://api.x.ai/v1" },
 	},
+	// [+pavan] Grok subscription (SuperGrok/X Premium OAuth). Native provider;
+	// protocol: pavan/xai-oauth. Models: .pavan/proxies/xai-oauth/xai-oauth.ts.
+	{
+		id: "xai-oauth",
+		name: "Grok Subscription",
+		description: "Grok SuperGrok / X Premium subscription access uses an OAuth device code flow — no API key.",
+		family: "xai-oauth",
+		capabilities: ["reasoning", "oauth"],
+		defaultModelId: "grok-4.5",
+		defaults: { baseUrl: "https://api.x.ai/v1" },
+		configFields: [],
+		metadata: { usageCostDisplay: "subscription" },
+	},
+	// [+pavan] Antigravity subscription (Cloud Code Assist OAuth). Scaffold:
+	// catalog verified, chat needs fresh login. Models: .pavan/proxies/antigravity/.
+	{
+		id: "antigravity",
+		name: "Antigravity Subscription",
+		description: "Google Antigravity subscription access via Cloud Code OAuth — no API key.",
+		family: "antigravity",
+		capabilities: ["reasoning", "oauth"],
+		defaultModelId: "gemini-2.5-flash",
+		defaults: { baseUrl: "https://daily-cloudcode-pa.googleapis.com" },
+		configFields: [],
+		metadata: { usageCostDisplay: "subscription" },
+	},
 	{
 		id: "together",
 		name: "Together AI",

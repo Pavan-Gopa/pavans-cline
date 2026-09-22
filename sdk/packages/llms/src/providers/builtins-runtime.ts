@@ -79,6 +79,17 @@ async function loadFamilyFactory(
 				const module = await import("./ai-sdk");
 				return module.createSapAiCoreProvider;
 			}
+			// [+pavan] subscription families. Factories live in
+			// ../../../.pavan/proxies/{xai-oauth,antigravity}/ — thin switch
+			// here, all protocol logic there (merge-safe: 8 lines).
+			case "xai-oauth": {
+				const module = await import("../../../.pavan/proxies/xai-oauth/xai-oauth-factory");
+				return module.createXaiOauthProvider;
+			}
+			case "antigravity": {
+				const module = await import("../../../.pavan/proxies/antigravity/antigravity-factory");
+				return module.createAntigravityProvider;
+			}
 		}
 	})();
 
