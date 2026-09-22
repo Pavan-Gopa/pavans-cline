@@ -1,0 +1,43 @@
+# Role routes — copy to `.cline/workflow-roles.yaml` in your product repo
+# (project file wins), or to `~/.cline/workflow-roles.yaml` as the global
+# fallback. Fill every primary with an exact authorized `{provider, model}`.
+# Empty strings = unconfigured: spawning that role is BLOCKED, never silent.
+#
+# Backups are Human-authorized per use. `automatic_backup` below is
+# documentation only — the plugin ALWAYS requires explicit Human words,
+# even if someone flips it to true. Code invariant beats config.
+
+version: 1
+
+policy:
+  automatic_backup: false
+  require_human_backup_authorization: true
+
+roles:
+  coder:
+    primary: { provider: "", model: "" }
+    backup: { provider: "", model: "" }
+
+  reviewer:
+    primary: { provider: "", model: "" }
+    backup: { provider: "", model: "" }
+
+  tester:
+    primary: { provider: "", model: "" }
+    backup: { provider: "", model: "" }
+
+  architect:
+    primary: { provider: "", model: "" }
+    backup: { provider: "", model: "" }
+
+  security:
+    primary: { provider: "", model: "" }
+    backup: { provider: "", model: "" }
+
+  design_advisor:
+    primary: { provider: "", model: "" }
+    backup: { provider: "", model: "" }
+
+  designer:
+    primary: { provider: "", model: "" }
+    backup: { provider: "", model: "" }
