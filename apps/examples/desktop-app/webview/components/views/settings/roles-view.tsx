@@ -195,12 +195,10 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
         setSaving((s) => ({ ...s, [role]: false }));
       }
     },
-    [pick, roles, loadRoles],
-  );
+		[pick, roles, loadRoles],
+	);
 
-  void readRolesFile;
-
-  return (
+	return (
     <div className="flex h-full flex-col gap-3 overflow-auto p-4">
       <div>
         <h2 className="text-base font-bold">Роли воркфлоу {readyCount}/7</h2>

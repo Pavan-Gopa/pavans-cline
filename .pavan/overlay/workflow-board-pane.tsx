@@ -28,13 +28,13 @@ import {
   loadProviderModels,
 } from "@/lib/provider-model-catalog";
 import {
-  isRouteReady,
-  parseRolesYaml,
-  parseWorkflowState,
-  parseWorkflowSteps,
-  type WorkflowMainState,
-  type WorkflowStepCard,
-} from "../../../../.pavan/overlay/board-parsers";
+	isRouteReady,
+	parseRolesYaml,
+	parseWorkflowState,
+	parseWorkflowSteps,
+	type WorkflowMainState,
+	type WorkflowStepCard,
+} from "./board-parsers";
 
 export const WORKFLOW_ROLE_IDS = [
   "coder",

@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ChatInputBar } from "@/components/views/chat/chat-input-bar";
 // [+pavan] Workflow board pane (Alt+W). Implementation: .pavan/overlay/workflow-board-pane.tsx.
-import { WorkflowBoardPane } from "../../../../.pavan/overlay/workflow-board-pane";
+import { WorkflowBoardPane } from "../../../../../.pavan/overlay/workflow-board-pane";
 import { ChatMessages } from "@/components/views/chat/chat-messages";
 import { EnvironmentSelector } from "@/components/views/chat/environment-selector";
 import { RemoteDirectoryPicker } from "@/components/views/chat/remote-directory-picker";
