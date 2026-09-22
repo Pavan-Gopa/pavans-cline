@@ -1842,6 +1842,18 @@ export async function handleCommand(
 		if (binding) ctx = getEnvironmentContext(ctx, binding.environmentId);
 	}
 
+	// [+pavan] Workflow board file bridge (3 commands, scoped paths only).
+	// Unknown names return null → fall through to the dispatcher below.
+	// Root arrives resolved (no import cycle: commands-pavan is standalone).
+	if (command === "pavan_read_workspace_files" || command === "pavan_write_workflow_roles" || command === "pavan_ensure_project") {
+		const { handlePavanCommand } = await import("./commands-pavan");
+		return await handlePavanCommand(
+			{ bindingRoot: getCommandRuntimeBinding(ctx, args).workspaceRoot },
+			command,
+			args,
+		);
+	}
+
 	// ── SSH remote environments ──────────────────────────────────────
 	if (command === "list_remote_environments") {
 		const service = getRemoteEnvironmentService(ctx);
