@@ -169,6 +169,11 @@ export {
 	refreshOcaToken,
 } from "./auth/oca";
 export {
+	getValidXaiCredentials,
+	loginXaiOauth,
+	refreshXaiToken,
+} from "./auth/xai";
+export {
 	formatProviderOAuthApiKey,
 	getPersistedProviderApiKey,
 	getProviderAuthHandler,

@@ -19,6 +19,9 @@ export enum BUILT_IN_PROVIDER {
 	OPENAI_NATIVE = "openai-native",
 	OPENAI_CODEX = "openai-codex",
 	OPENAI_CODEX_CLI = "openai-codex-cli",
+	// [+pavan] Subscription providers: Grok OAuth + Antigravity (Cloud Code).
+	XAI_OAUTH = "xai-oauth",
+	ANTIGRAVITY = "antigravity",
 	// CLI / Subscription-based providers
 	OPENCODE = "opencode",
 	// Cloud providers

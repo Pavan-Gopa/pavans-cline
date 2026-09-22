@@ -13,6 +13,8 @@ import {
 import { getValidOpenAICodexCredentials, loginOpenAICodex } from "./codex";
 import { getValidOcaCredentials, loginOcaOAuth } from "./oca";
 import type { OAuthCredentials, OAuthLoginCallbacks } from "./types";
+import { getValidXaiCredentials, loginXaiOauth } from "./xai";
+import { getValidAntigravityCredentials, loginAntigravity } from "./antigravity";
 
 const WORKOS_TOKEN_PREFIX = "workos:";
 
@@ -269,6 +271,28 @@ const providerAuthHandlers = [
 			}),
 		refresh: ({ credentials, forceRefresh, telemetry }) =>
 			getValidOpenAICodexCredentials(credentials, { forceRefresh, telemetry }),
+	}),
+	// [+pavan] Grok subscription (SuperGrok/X Premium device-code OAuth).
+	// Bearer vault shape mirrors openai-codex (tokenSource oauth).
+	createOAuthHandler({
+		providerId: "xai-oauth",
+		login: ({ callbacks, telemetry }) =>
+			loginXaiOauth({
+				onAuth: callbacks.onAuth,
+				onProgress: callbacks.onProgress,
+				telemetry,
+			}),
+		refresh: ({ credentials, forceRefresh, telemetry }) =>
+			getValidXaiCredentials(credentials, { forceRefresh, telemetry }),
+	}),
+	// [+pavan] Antigravity subscription (local login adoption + refresh).
+	// Login reads the existing jetski token file; refresh hits Google OAuth.
+	createOAuthHandler({
+		providerId: "antigravity",
+		login: ({ callbacks, telemetry }) =>
+			loginAntigravity({ callbacks: { onProgress: callbacks.onProgress }, telemetry }),
+		refresh: ({ credentials, forceRefresh, telemetry }) =>
+			getValidAntigravityCredentials(credentials, { forceRefresh, telemetry }),
 	}),
 ] as const satisfies readonly ProviderAuthHandler[];
 

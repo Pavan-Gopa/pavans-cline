@@ -47,3 +47,26 @@ export {
 	CODEX_EFFECTIVE_CONTEXT_WINDOW_PERCENT,
 	filterOpenAICodexModels,
 } from "./providers/openai-codex-models";
+export {
+	formatXAIErrorDetail,
+	validateXAIEndpoint,
+	XAI_ACCESS_SKEW_MS,
+	XAI_MIN_TTL_MS,
+	XAI_OAUTH_CLIENT_ID,
+	XAI_OAUTH_DEVICE_CODE_URL,
+	XAI_OAUTH_DISCOVERY_URL,
+	XAI_OAUTH_SCOPE,
+	XAI_PUBLIC_BASE_URL,
+	XAI_SUBSCRIPTION_PROXY_BASE_URL,
+	xaiBackoffMs,
+	xaiBaseFor,
+	xaiEffectiveExpiry,
+	xaiRouteFor,
+} from "./providers/xai-oauth-protocol";
+export {
+	ANTIGRAVITY_CLIENT_ID,
+	ANTIGRAVITY_CLOUDCODE_BASE,
+	ANTIGRAVITY_CURATED,
+	ANTIGRAVITY_IDS,
+	isAntigravityModel,
+} from "./providers/antigravity-protocol";
