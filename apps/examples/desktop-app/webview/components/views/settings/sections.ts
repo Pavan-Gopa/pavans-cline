@@ -8,6 +8,8 @@
 const ALL_SETTINGS_SECTIONS = [
 	"General",
 	"API Providers",
+	// [+pavan] Workflow role→route assignment (Alt+M). View: roles-view.tsx.
+	"Roles",
 	"Voice",
 	"Channels",
 	"Schedules",

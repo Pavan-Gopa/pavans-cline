@@ -74,10 +74,9 @@ import {
 	ProviderListContent,
 } from "./provider-list-view";
 import { RemoteEnvironmentsContent } from "./remote-environments-view";
+// [+pavan] Workflow roles (Alt+M). Same file the board + plugin read.
+import { RolesContent } from "./roles-view";
 import { RoutineSchedulesContent } from "./routine-view";
-import type { SettingsSection } from "./sections";
-import { toSettingsPatch } from "./settings-patch";
-import { VoiceInputContent } from "./voice-input-view";
 
 // Nav categories live in ./sections so the always-mounted sidebar can import
 // them without pulling this module graph into the initial bundle.
@@ -108,12 +107,17 @@ export function SettingsView({
 	section,
 	onNavigateSection,
 	onOpenSession,
+	// [+pavan] Roles section workspace (same root the board reads).
+	workspace,
 }: {
 	section: SettingsSection;
 	onNavigateSection: (section: SettingsSection) => void;
 	onOpenSession?: (sessionId: string) => void | Promise<void>;
+	workspace?: string;
 }) {
 	const activeNav = section;
+	// [+pavan] Roles section workspace (same root the board reads).
+	const rolesWorkspace = workspace ?? "";
 	const [providers, setProviders] = useState<Provider[]>(
 		() => providerCatalogCache?.providers ?? [],
 	);
@@ -615,6 +619,9 @@ export function SettingsView({
 				{providerContent}
 				{addProviderDialog}
 			</>
+		// [+pavan] Workflow roles (Alt+M). Same file the board + plugin read.
+		) : activeNav === "Roles" ? (
+			<RolesContent workspace={rolesWorkspace} />
 		) : activeNav === "Voice" ? (
 			<VoiceInputContent
 				onOpenModelProviders={() => onNavigateSection("API Providers")}

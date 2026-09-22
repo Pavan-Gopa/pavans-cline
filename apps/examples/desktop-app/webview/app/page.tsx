@@ -716,15 +716,20 @@ export default function Home() {
 			if (showOnboarding) {
 				return;
 			}
-			// [+pavan] Alt+W — workflow board. Plain Alt (no Cmd/Ctrl), so it
-			// never collides with their Cmd/Ctrl+P/N/, shortcuts below.
+			// [+pavan] Alt+W — workflow board; Alt+M — workflow roles.
+			// Plain Alt (no Cmd/Ctrl), so neither collides with their
+			// Cmd/Ctrl+P/N/, shortcuts below.
 			if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
 				if (event.key === "w" || event.key === "W" || event.key === "ц" || event.key === "Ц") {
 					event.preventDefault();
 					handleViewChange("workflow");
 					return;
 				}
-				// Alt+M keeps native meaning: providers tab (role routes read it).
+				if (event.key === "m" || event.key === "M" || event.key === "ь" || event.key === "Ь") {
+					event.preventDefault();
+					handleSettingsSectionChange("Roles");
+					return;
+				}
 				return;
 			}
 			if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) {
@@ -998,6 +1003,8 @@ export default function Home() {
 											onNavigateSection={handleSettingsSectionChange}
 											onOpenSession={handleOpenSessionById}
 											section={settingsSection}
+											// [+pavan] Roles section reads the same workspace.
+											workspace={historyWorkspacePaths[0] ?? ""}
 										/>
 									</div>
 								) : null}

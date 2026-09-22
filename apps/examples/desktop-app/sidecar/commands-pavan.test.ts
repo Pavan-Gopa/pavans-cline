@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { handlePavanCommand } from "./commands-pavan.ts";
+import { handlePavanCommand } from "./commands-pavan";
 
 function ctx(root: string): { bindingRoot: string } {
   return { bindingRoot: root };

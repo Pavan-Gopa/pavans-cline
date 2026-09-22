@@ -148,6 +148,8 @@ function hubPort(url: string | null): string | null {
 const SETTINGS_SECTION_ICONS = {
 	General: SlidersHorizontal,
 	"API Providers": Plug,
+	// [+pavan] Workflow roles (Alt+M).
+	Roles: Settings,
 	Voice: Mic,
 	Channels: Radio,
 	Schedules: Clock3,
