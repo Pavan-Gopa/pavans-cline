@@ -34,6 +34,8 @@ import {
 	SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ChatInputBar } from "@/components/views/chat/chat-input-bar";
+// [+pavan] Workflow board pane (Alt+W). Implementation: .pavan/overlay/workflow-board-pane.tsx.
+import { WorkflowBoardPane } from "../../../../.pavan/overlay/workflow-board-pane";
 import { ChatMessages } from "@/components/views/chat/chat-messages";
 import { EnvironmentSelector } from "@/components/views/chat/environment-selector";
 import { RemoteDirectoryPicker } from "@/components/views/chat/remote-directory-picker";
@@ -692,11 +694,20 @@ export default function Home() {
 		},
 		[navigateWith],
 	);
-	// Standard app shortcuts: Cmd/Ctrl+P for session search, Cmd/Ctrl+N for a
-	// new session, and Cmd/Ctrl+, for settings.
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (showOnboarding) {
+				return;
+			}
+			// [+pavan] Alt+W — workflow board. Plain Alt (no Cmd/Ctrl), so it
+			// never collides with their Cmd/Ctrl+P/N/, shortcuts below.
+			if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+				if (event.key === "w" || event.key === "W" || event.key === "ц" || event.key === "Ц") {
+					event.preventDefault();
+					handleViewChange("workflow");
+					return;
+				}
+				// Alt+M keeps native meaning: providers tab (role routes read it).
 				return;
 			}
 			if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) {
@@ -880,7 +891,10 @@ export default function Home() {
 							<SidebarTrigger className="absolute left-20 top-0 z-40 md:hidden" />
 							<WindowTitleBar />
 							<div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-								{view === "sessions" ? (
+								{/* [+pavan] Workflow board (Alt+W). */}
+								{view === "workflow" ? (
+									<WorkflowBoardPane />
+								) : view === "sessions" ? (
 									<SessionsView
 										activeSessionId={activeHistorySessionId}
 										history={sessionHistory}

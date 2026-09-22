@@ -113,7 +113,8 @@ import { TASK_WORKTREE_DELETE_WARNING } from "@/lib/work-in-selection";
 import { isTaskWorktreePath } from "@/lib/workspace-paths";
 
 type Thread = SessionThread;
-type AppView = "chat" | "sessions" | "settings";
+// [+pavan] workflow board nav target (Alt+W).
+type AppView = "chat" | "sessions" | "settings" | "workflow";
 
 const filterOptions = ["All", "Running"] as const;
 type FilterOption = (typeof filterOptions)[number];
@@ -413,6 +414,11 @@ export function AgentSidebar({
 	}, [closeMobileSidebar, onHome]);
 	const openSessions = useCallback(() => {
 		setView("sessions");
+		closeMobileSidebar();
+	}, [closeMobileSidebar, setView]);
+	// [+pavan] Workflow board (Alt+W). Panel: .pavan/overlay/workflow-board-pane.tsx.
+	const openWorkflow = useCallback(() => {
+		setView("workflow");
 		closeMobileSidebar();
 	}, [closeMobileSidebar, setView]);
 	// The gear is a shortcut to the General settings page rather than a
@@ -927,6 +933,22 @@ export function AgentSidebar({
 						>
 							<Plus className="size-4 shrink-0" />
 							<span className="truncate">Session</span>
+						</Button>
+						{/* [+pavan] Workflow board (Alt+W). */}
+						<Button
+							aria-current={view === "workflow" ? "page" : undefined}
+							aria-label="Workflow"
+							className={cn(
+								view === "workflow" &&
+									"bg-surface-hover text-sidebar-foreground",
+							)}
+							onClick={openWorkflow}
+							title="Workflow board (Alt+W)"
+							type="button"
+							variant="sidebarItem"
+						>
+							<GitFork className="size-4 shrink-0" />
+							<span className="truncate">Workflow</span>
 						</Button>
 						<Button
 							aria-label="Schedule"

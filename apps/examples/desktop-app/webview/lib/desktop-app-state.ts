@@ -6,7 +6,8 @@ import {
 import type { SessionHistoryItem, SessionMetadata } from "./session-history";
 import { sessionKey } from "./session-identity";
 
-export type DesktopAppView = "chat" | "sessions" | "settings";
+// [+pavan] workflow board view (Alt+W). Panel: .pavan/overlay/workflow-board-pane.tsx.
+export type DesktopAppView = "chat" | "sessions" | "settings" | "workflow";
 
 export type DesktopThread = {
 	id: string;
