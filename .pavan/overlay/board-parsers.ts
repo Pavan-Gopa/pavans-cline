@@ -161,6 +161,9 @@ export function parseWorkflowSteps(text: string): WorkflowStepCard[] {
 export interface WorkflowRoleRoute {
   primary: string;
   backup: string;
+  /** Reasoning effort for the primary slot ("low"|"medium"|"high"|"xhigh" or absent). */
+  primaryReasoning?: string;
+  backupReasoning?: string;
 }
 
 export function parseRolesYaml(
@@ -190,20 +193,37 @@ export function parseRolesYaml(
           /provider:\s*"([^"]*)"|provider:\s*'([^']*)'|provider:\s*([^\s,}]+)/.exec(sm[2]);
         const m =
           /model:\s*"([^"]*)"|model:\s*'([^']*)'|model:\s*([^\s,}]+)/.exec(sm[2]);
+        const q =
+          /reasoning:\s*"([^"]*)"|reasoning:\s*'([^']*)'|reasoning:\s*([^\s,}]+)/.exec(sm[2]);
         const val = (x: RegExpExecArray | null): string =>
           x ? (x[1] ?? x[2] ?? x[3] ?? "") : "";
         const provider = val(p);
         const model = val(m);
+        const level = val(q).toLowerCase();
+        const reasoning = level === "low" || level === "medium" || level === "high" || level === "xhigh" ? level : "";
         if (provider || model)
           table[role][slot] = `${provider}/${model}`
             .replace(/^\//, "")
             .replace(/\/$/, "");
+        if (reasoning) {
+          if (slot === "primary") table[role].primaryReasoning = reasoning;
+          else table[role].backupReasoning = reasoning;
+        }
       }
       continue;
     }
-    const km = /^      (provider|model):\s*(.+?)\s*$/.exec(line);
+    const km = /^      (provider|model|reasoning):\s*(.+?)\s*$/.exec(line);
     if (km && slot) {
       const value = km[2].replace(/^['"]|['"]$/g, "").trim();
+      if (km[1] === "reasoning") {
+        const level = value.toLowerCase();
+        if (slot === "primary") {
+          if (level === "low" || level === "medium" || level === "high" || level === "xhigh") table[role].primaryReasoning = level;
+          else delete table[role].primaryReasoning;
+        } else if (level === "low" || level === "medium" || level === "high" || level === "xhigh") table[role].backupReasoning = level;
+        else delete table[role].backupReasoning;
+        continue;
+      }
       const cur = table[role][slot] ? table[role][slot].split("/") : ["", ""];
       if (km[1] === "provider") cur[0] = value;
       else cur[1] = value;

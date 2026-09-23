@@ -123,6 +123,7 @@ const plugin: AgentPlugin = {
             },
             provider_id: { type: "string", description: "Route override. Omit to use the role's configured route." },
             model_id: { type: "string", description: "Route override. Omit to use the role's configured route." },
+            reasoning_effort: { type: "string", enum: ["low", "medium", "high", "xhigh"], description: "Reasoning override. Omit to use the role's configured level (absent = None)." },
             step: { type: "string", description: "Step id, e.g. S3." },
             work_item_id: { type: "string", description: "Stable ID from the active STEPS.md card." },
             goal: { type: "string", description: "One-paragraph goal for this worker." },
@@ -147,6 +148,7 @@ const plugin: AgentPlugin = {
           const route = resolveRoute(table, role, {
             providerId: optionalString(args, "provider_id"),
             modelId: optionalString(args, "model_id"),
+            reasoning: optionalString(args, "reasoning_effort"),
             isBackup,
           });
           const gate = validateSpawn({
@@ -199,10 +201,11 @@ const plugin: AgentPlugin = {
           for (const role of ROLE_ORDER) {
             const entry = table[role];
             const ready = Boolean(entry.primary.providerId && entry.primary.modelId);
+            const rsSuffix = (rt: { reasoning?: string }): string => (rt.reasoning ? `:${rt.reasoning}` : "");
             roles[role] = {
-              primary: ready ? `${entry.primary.providerId}/${entry.primary.modelId}` : "(unconfigured — spawn blocked)",
+              primary: ready ? `${entry.primary.providerId}/${entry.primary.modelId}${rsSuffix(entry.primary)}` : "(unconfigured — spawn blocked)",
               backup: entry.backup.providerId && entry.backup.modelId
-                ? `${entry.backup.providerId}/${entry.backup.modelId}`
+                ? `${entry.backup.providerId}/${entry.backup.modelId}${rsSuffix(entry.backup)}`
                 : "(none)",
               spawn_ready: ready,
             };

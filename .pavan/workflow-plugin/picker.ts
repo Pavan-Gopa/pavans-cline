@@ -103,9 +103,10 @@ function serializeRoles(params: SerializeRolesParams): string {
   for (const role of ROLE_ORDER) {
     const entry = params.table[role];
     const mark = params.updatedRole === role ? "  # <-- updated" : "";
+    const rsPart = (rt: { reasoning?: string }): string => (rt.reasoning ? `, reasoning: "${rt.reasoning}"` : "");
     lines.push(`  ${role}:${mark}`);
-    lines.push(`    primary: { provider: "${entry.primary.providerId}", model: "${entry.primary.modelId}" }`);
-    lines.push(`    backup: { provider: "${entry.backup.providerId}", model: "${entry.backup.modelId}" }`);
+    lines.push(`    primary: { provider: "${entry.primary.providerId}", model: "${entry.primary.modelId}"${rsPart(entry.primary)} }`);
+    lines.push(`    backup: { provider: "${entry.backup.providerId}", model: "${entry.backup.modelId}"${rsPart(entry.backup)} }`);
     lines.push("");
   }
   return lines.join("\n");
@@ -216,6 +217,7 @@ const workflowPick = createTool({
       provider: { type: "string", description: "Provider id from workflow_providers." },
       model: { type: "string", description: "Model id from workflow_models." },
       slot: { type: "string", enum: ["primary", "backup"], description: "Which slot. Default primary." },
+      reasoning: { type: "string", enum: ["low", "medium", "high", "xhigh"], description: "Reasoning effort for this role. Omit = None." },
       human_backup_authorization: { type: "string", description: "Exact Human words; required for slot=backup." },
       project: { type: "string", description: "Workspace root override. Defaults to the session root." },
     },
@@ -252,7 +254,13 @@ const workflowPick = createTool({
     }
     const file = rolesFileFor(optionalString(args, "project"));
     const { table } = loadRoles(optionalString(args, "project"));
-    table[role][slot] = { providerId, modelId };
+    const nextRoute = { providerId, modelId };
+    const levelRaw = optionalString(args, "reasoning") ?? "";
+    const level = levelRaw.toLowerCase();
+    if (level === "low" || level === "medium" || level === "high" || level === "xhigh") {
+      (nextRoute as { reasoning?: string }).reasoning = level;
+    }
+    table[role][slot] = nextRoute;
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, serializeRoles({ table, updatedRole: role }));
     return {

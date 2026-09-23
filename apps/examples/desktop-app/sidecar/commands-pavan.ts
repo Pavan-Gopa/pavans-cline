@@ -33,7 +33,13 @@ export interface PavanCommandContext {
 }
 
 function bindingRoot(ctx: PavanCommandContext): string {
-  return resolve(ctx.bindingRoot || "/");
+  const raw = (ctx.bindingRoot || "").trim();
+  // The packaged app boots its sidecar at filesystem root: writing
+  // <root>/.cline would hit EROFS (the exact red rows on the board).
+  // Refuse loudly instead of attempting mkdir('/.cline') — the pane
+  // surfaces this as "открой проект", never as a silent mis-save.
+  if (!raw || raw === "/") throw new Error("no workspace open — открой проект, затем сохраняй роли");
+  return resolve(raw);
 }
 
 function confinedPath(root: string, absPath: string): string {

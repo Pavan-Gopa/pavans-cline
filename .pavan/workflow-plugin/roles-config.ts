@@ -39,11 +39,15 @@ function emptyTable(): RolesTable {
 }
 
 function inlineRoute(text: string): ModelRoute | undefined {
-  const provider = /provider:\s*"([^"]*)"|provider:\s*'([^']*)'|provider:\s*([^\s,}]+)/.exec(text);
-  const model = /model:\s*"([^"]*)"|model:\s*'([^']*)'|model:\s*([^\s,}]+)/.exec(text);
-  const pick = (m: RegExpExecArray | null) => (m ? (m[1] ?? m[2] ?? m[3] ?? "") : "");
-  if (!provider && !model) return undefined;
-  return { providerId: pick(provider), modelId: pick(model) };
+	const provider = /provider:\s*"([^"]*)"|provider:\s*'([^']*)'|provider:\s*([^\s,}]+)/.exec(text);
+	const model = /model:\s*"([^"]*)"|model:\s*'([^']*)'|model:\s*([^\s,}]+)/.exec(text);
+	const reasoning = /reasoning:\s*"([^"]*)"|reasoning:\s*'([^']*)'|reasoning:\s*([^\s,}]+)/.exec(text);
+	const pick = (m: RegExpExecArray | null) => (m ? (m[1] ?? m[2] ?? m[3] ?? "") : "");
+	if (!provider && !model && !reasoning) return undefined;
+	const route: ModelRoute = { providerId: pick(provider), modelId: pick(model) };
+	const level = pick(reasoning).toLowerCase();
+	if (level === "low" || level === "medium" || level === "high" || level === "xhigh") route.reasoning = level;
+	return route;
 }
 
 /** Minimal parser for the roles file shape only — not a YAML library. */
@@ -69,11 +73,16 @@ export function parseRolesYaml(text: string): RolesTable {
       slot = slotMatch[1] as "primary" | "backup";
       continue;
     }
-    const kvMatch = /^      (provider|model):\s*(.+?)\s*$/.exec(line);
+    const kvMatch = /^      (provider|model|reasoning):\s*(.+?)\s*$/.exec(line);
     if (kvMatch && slot) {
       const value = kvMatch[2].replace(/^['"]|['"]$/g, "").trim();
       if (kvMatch[1] === "provider") table[role][slot].providerId = value;
-      else table[role][slot].modelId = value;
+      else if (kvMatch[1] === "model") table[role][slot].modelId = value;
+      else {
+        const level = value.toLowerCase();
+        if (level === "low" || level === "medium" || level === "high" || level === "xhigh") table[role][slot].reasoning = level;
+        else delete table[role][slot].reasoning;
+      }
     }
   }
   return table;
@@ -105,10 +114,13 @@ export function loadRoles(projectRoot?: string): RolesLoadResult {
 export function resolveRoute(
   table: RolesTable,
   role: RoleId,
-  args: { providerId?: string; modelId?: string; isBackup?: boolean },
+  args: { providerId?: string; modelId?: string; reasoning?: string; isBackup?: boolean },
 ): ModelRoute {
   if (args.providerId || args.modelId) {
-    return { providerId: args.providerId ?? "", modelId: args.modelId ?? "" };
+    const route: ModelRoute = { providerId: args.providerId ?? "", modelId: args.modelId ?? "" };
+    const level = (args.reasoning ?? "").toLowerCase();
+    if (level === "low" || level === "medium" || level === "high" || level === "xhigh") route.reasoning = level;
+    return route;
   }
   const entry = table[role];
   return args.isBackup ? { ...entry.backup } : { ...entry.primary };

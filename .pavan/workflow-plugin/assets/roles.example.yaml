@@ -13,6 +13,8 @@ policy:
   automatic_backup: false
   require_human_backup_authorization: true
 
+# Optional per-slot reasoning effort: low | medium | high | xhigh.
+# Absent = None (no thinking). A model without reasoning ignores the key.
 roles:
   coder:
     primary: { provider: "", model: "" }

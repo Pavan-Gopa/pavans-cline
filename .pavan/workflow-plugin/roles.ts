@@ -42,8 +42,10 @@ export const ROLE_ORDER = [
 export type RoleId = (typeof ROLE_ORDER)[number];
 
 export interface ModelRoute {
-  providerId: string;
-  modelId: string;
+	providerId: string;
+	modelId: string;
+	/** Reasoning effort; absent = None. Модель без reasoning — игнорирует. */
+	reasoning?: string;
 }
 
 export interface RoleAssignment extends ModelRoute {
@@ -224,6 +226,7 @@ export function buildAssignmentPacket(args: {
     `objective_gates: ${(args.objectiveGates ?? []).join("; ") || "(none assigned)"}`,
     `judgment_gates: ${(args.judgmentGates ?? []).join("; ") || "(none assigned)"}`,
   ];
+  if (args.route.reasoning) lines.push(`reasoning_effort: ${args.route.reasoning} (thinking on; None = поле пустое)`);
   if (args.role === "coder") lines.push(`ponytail_mode: ${args.ponytailMode ?? "full"}`);
   if (args.retryMemory) lines.push(`verified_retry_memory: ${args.retryMemory}`);
   if (args.extra) lines.push(args.extra);

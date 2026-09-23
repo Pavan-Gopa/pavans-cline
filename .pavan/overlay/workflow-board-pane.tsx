@@ -46,6 +46,9 @@ export const WORKFLOW_ROLE_IDS = [
   "designer",
 ] as const;
 
+/** Reasoning effort per role. Пусто = None (без thinking). */
+export const WORKFLOW_REASONING_LEVELS = ["", "low", "medium", "high", "xhigh"] as const;
+
 export const WORKFLOW_ROLE_RU: Record<string, { name: string; hint: string }> = {
   coder: { name: "Код", hint: "пишет код по шагу" },
   reviewer: { name: "Проверка", hint: "независимая проверка (другая модель!)" },
@@ -64,7 +67,7 @@ export interface PavanFileReader {
 export interface WorkflowBoardSnapshot {
   state: WorkflowMainState | null;
   steps: WorkflowStepCard[];
-  roles: Record<string, { primary: string; backup: string }>;
+  roles: Record<string, { primary: string; backup: string; primaryReasoning?: string; backupReasoning?: string }>;
   generatedAt: string;
 }
 
@@ -76,7 +79,7 @@ export function useWorkflowBoard(
   loading: boolean;
   error: string | null;
   reload: () => void;
-  saveRole: (role: string, provider: string, model: string) => Promise<{ ok: boolean; error?: string }>;
+  saveRole: (role: string, provider: string, model: string, reasoning?: string) => Promise<{ ok: boolean; error?: string }>;
 } {
   const [snapshot, setSnapshot] = useState<WorkflowBoardSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
@@ -122,7 +125,7 @@ export function useWorkflowBoard(
   }, [workspace, io, tick]);
 
   const saveRole = useCallback(
-    async (role: string, provider: string, model: string) => {
+    async (role: string, provider: string, model: string, reasoning?: string) => {
       if (!WORKFLOW_ROLE_IDS.includes(role as (typeof WORKFLOW_ROLE_IDS)[number])) {
         return { ok: false, error: "неизвестная роль" };
       }
@@ -141,19 +144,31 @@ export function useWorkflowBoard(
           "",
           "roles:",
         ];
+        const normReasoning = (v: unknown): string =>
+          v === "low" || v === "medium" || v === "high" || v === "xhigh" ? (v as string) : "";
         for (const r of WORKFLOW_ROLE_IDS) {
           const entry = r === role
-            ? { primary: `${provider}/${model}`, backup: current[r]?.backup ?? "" }
-            : (current[r] ?? { primary: "", backup: "" });
-          const split = (s: string): { provider: string; model: string } => {
-            if (!s) return { provider: "", model: "" };
-            const i = s.indexOf("/");
-            return i < 0 ? { provider: s, model: "" } : { provider: s.slice(0, i), model: s.slice(i + 1) };
+            ? {
+                primary: `${provider}/${model}`,
+                backup: current[r]?.backup ?? "",
+                reasoning: normReasoning(reasoning),
+              }
+            : {
+                primary: current[r]?.primary ?? "",
+                backup: current[r]?.backup ?? "",
+                reasoning: normReasoning((current[r] as { primaryReasoning?: unknown })?.primaryReasoning),
+              };
+          const split = (x: string): { provider: string; model: string } => {
+            if (!x) return { provider: "", model: "" };
+            const i = x.indexOf("/");
+            return i < 0 ? { provider: x, model: "" } : { provider: x.slice(0, i), model: x.slice(i + 1) };
           };
           const p = split(entry.primary);
           const b = split(entry.backup);
+          const rs = normReasoning((entry as { reasoning?: unknown }).reasoning);
+          const rsPart = rs ? `, reasoning: "${rs}"` : "";
           lines.push(`  ${r}:`);
-          lines.push(`    primary: { provider: "${p.provider}", model: "${p.model}" }`);
+          lines.push(`    primary: { provider: "${p.provider}", model: "${p.model}"${rsPart}}`);
           lines.push(`    backup: { provider: "${b.provider}", model: "${b.model}" }`);
           lines.push("");
         }
@@ -182,7 +197,7 @@ export function WorkflowBoardPane(props: {
   const [providers, setProviders] = useState<Array<{ id: string; name: string; configured: boolean }>>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [modelsByProvider, setModelsByProvider] = useState<Record<string, string[]>>({});
-  const [pick, setPick] = useState<Record<string, { provider: string; model: string }>>({});
+  const [pick, setPick] = useState<Record<string, { provider: string; model: string; reasoning?: string }>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState<Record<string, string>>({});
 
@@ -233,11 +248,13 @@ export function WorkflowBoardPane(props: {
         return;
       }
       setSaving((s) => ({ ...s, [role]: true }));
-      const r = await saveRole(role, sel.provider, sel.model);
+      const r = await saveRole(role, sel.provider, sel.model, sel.reasoning);
       setSaving((s) => ({ ...s, [role]: false }));
       setStatus((s) => ({
         ...s,
-        [role]: r.ok ? `✓ ${sel.provider}/${sel.model} — активно` : (r.error ?? "не сохранилось"),
+        [role]: r.ok
+          ? `✓ ${sel.provider}/${sel.model}${sel.reasoning ? `:${sel.reasoning}` : ""} — активно`
+          : (r.error ?? "не сохранилось"),
       }));
     },
     [pick, saveRole],
@@ -319,10 +336,11 @@ export function WorkflowBoardPane(props: {
           <h3 className="mb-1 text-sm font-semibold">Роли {readyCount}/7</h3>
           {WORKFLOW_ROLE_IDS.map((r) => {
             const cur = snapshot?.roles[r]?.primary ?? "";
-            const sel = pick[r] ?? { provider: cur.split("/")[0] ?? "", model: "" };
+            const curReasoning = snapshot?.roles[r]?.primaryReasoning ?? "";
+            const sel = pick[r] ?? { provider: cur.split("/")[0] ?? "", model: "", reasoning: curReasoning };
             const models = modelsByProvider[sel.provider] ?? [];
             return (
-              <div key={r} className="mb-2 grid grid-cols-[110px_1fr_1fr_auto] items-center gap-2 rounded-xl border p-2">
+              <div key={r} className="mb-2 grid grid-cols-[110px_1fr_1fr_110px_auto] items-center gap-2 rounded-xl border p-2">
                 <div>
                   <strong className="block text-[13px]">{WORKFLOW_ROLE_RU[r].name}</strong>
                   <span className="block text-[11px] text-muted-foreground">{WORKFLOW_ROLE_RU[r].hint}</span>
@@ -332,7 +350,7 @@ export function WorkflowBoardPane(props: {
                   value={sel.provider}
                   onChange={(e) => {
                     const provider = e.target.value;
-                    setPick((p) => ({ ...p, [r]: { provider, model: "" } }));
+                    setPick((p) => ({ ...p, [r]: { provider, model: "", reasoning: p[r]?.reasoning } }));
                     if (provider) void loadModels(provider);
                   }}
                   className="rounded-lg border bg-transparent px-2 py-1 text-xs"
@@ -349,13 +367,27 @@ export function WorkflowBoardPane(props: {
                   aria-label={`${r} model`}
                   value={sel.model}
                   disabled={!sel.provider || !models.length}
-                  onChange={(e) => setPick((p) => ({ ...p, [r]: { provider: sel.provider, model: e.target.value } }))}
+                  onChange={(e) => setPick((p) => ({ ...p, [r]: { ...p[r], provider: sel.provider, model: e.target.value } }))}
                   className="rounded-lg border bg-transparent px-2 py-1 text-xs"
                 >
                   <option value="">— модель —</option>
                   {models.map((m) => (
                     <option key={m} value={m}>
                       {m}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label={`${r} reasoning effort`}
+                  value={sel.reasoning ?? ""}
+                  title="Глубина рассуждений (thinking). Пусто = None."
+                  onChange={(e) => setPick((p) => ({ ...p, [r]: { ...p[r], provider: sel.provider, model: sel.model, reasoning: e.target.value || undefined } }))}
+                  className="rounded-lg border bg-transparent px-2 py-1 text-xs"
+                >
+                  <option value="">— усилие —</option>
+                  {WORKFLOW_REASONING_LEVELS.filter((v) => v !== "").map((v) => (
+                    <option key={v} value={v}>
+                      {v}
                     </option>
                   ))}
                 </select>
@@ -367,8 +399,8 @@ export function WorkflowBoardPane(props: {
                 >
                   {saving[r] ? "…" : "Сохранить"}
                 </button>
-                <span className="col-span-4 text-[11px] text-muted-foreground">
-                  {status[r] ?? (cur || "не назначена — запуск заблокирован")}
+                <span className="col-span-5 text-[11px] text-muted-foreground">
+                  {status[r] ?? ((cur ? `${cur}${curReasoning ? `:${curReasoning}` : ""}` : "") || "не назначена — запуск заблокирован")}
                 </span>
               </div>
             );
