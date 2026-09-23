@@ -494,13 +494,14 @@ function buildGatewayConfig(config: ProviderConfig) {
 		models: buildGatewayModels(providerId, config),
 		options: {
 			region: config.region ?? config.gcp?.region,
+			// [+pavan] Antigravity Cloud Code project (bridged from OMP vault
+			// metadata; MITM-verified envelope requires it).
 			project: config.gcp?.projectId,
 			projectId: config.gcp?.projectId,
 			location: config.region ?? config.gcp?.region,
 			accessKeyId: config.aws?.accessKey,
 			secretAccessKey: config.aws?.secretKey,
 			sessionToken: config.aws?.sessionToken,
-			authentication: config.aws?.authentication,
 			profile: config.aws?.profile,
 			endpoint: config.aws?.endpoint,
 			customModelBaseId: config.aws?.customModelBaseId,

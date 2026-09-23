@@ -79,14 +79,15 @@ async function loadFamilyFactory(
 				const module = await import("./ai-sdk");
 				return module.createSapAiCoreProvider;
 			}
-			// [+pavan] subscription families route through the
-			// OpenAI-compatible transport; bearer + proxy routing handled
-			// per-request by the xai-oauth vendor module below.
-			// (Antigravity native transport lands with fresh login.)
-			case "xai-oauth":
-			case "antigravity": {
+			// [+pavan] xai-oauth rides OpenAI-compatible; antigravity has a
+			// native Cloud Code envelope (MITM-verified vs OMP 2026-09-23).
+			case "xai-oauth": {
 				const module = await import("./ai-sdk");
 				return module.createOpenAICompatibleProvider;
+			}
+			case "antigravity": {
+				const module = await import("./ai-sdk");
+				return module.createAntigravityProvider;
 			}
 		}
 	})();

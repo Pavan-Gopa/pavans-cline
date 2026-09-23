@@ -2017,6 +2017,11 @@ async function createProviderModule(
 			const { createGoogleProviderModule } = await import("./vendors/google");
 			return createGoogleProviderModule(config, context);
 		}
+		// [+pavan] Antigravity native Cloud Code transport (vendors/antigravity).
+		case "antigravity": {
+			const { createAntigravityProviderModule } = await import("./vendors/antigravity");
+			return createAntigravityProviderModule(config, context);
+		}
 		case "vertex": {
 			const { createVertexProviderModule } = await import("./vendors/vertex");
 			return createVertexProviderModule(config, context);
@@ -2456,6 +2461,8 @@ export const createOpenAICompatibleProvider =
 	createAiSdkProvider("openai-compatible");
 export const createAnthropicProvider = createAiSdkProvider("anthropic");
 export const createGoogleProvider = createAiSdkProvider("google");
+// [+pavan] Antigravity native Cloud Code transport (vendors/antigravity).
+export const createAntigravityProvider = createAiSdkProvider("antigravity");
 export const createVertexProvider = createAiSdkProvider("vertex");
 export const createBedrockProvider = createAiSdkProvider("bedrock");
 export const createMistralProvider = createAiSdkProvider("mistral");

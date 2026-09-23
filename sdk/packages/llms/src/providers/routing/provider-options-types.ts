@@ -10,6 +10,8 @@ export type AiSdkProviderOptionsTarget =
 	| "openai-compatible"
 	| "anthropic"
 	| "google"
+	// [+pavan] Antigravity native Cloud Code transport (vendors/antigravity).
+	| "antigravity"
 	| "vertex"
 	| "bedrock"
 	| "mistral"
@@ -66,11 +68,12 @@ export function inferProviderOptionsTarget(
 			return "cline";
 		case "openai-native":
 			return "openai";
-		case "anthropic":
-			return "anthropic";
 		case "google":
 		case "gemini":
 			return "google";
+		// [+pavan] Antigravity native Cloud Code transport.
+		case "antigravity":
+			return "antigravity";
 		case "vertex":
 			return "vertex";
 		case "bedrock":
