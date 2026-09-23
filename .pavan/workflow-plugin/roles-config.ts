@@ -46,7 +46,7 @@ function inlineRoute(text: string): ModelRoute | undefined {
 	if (!provider && !model && !reasoning) return undefined;
 	const route: ModelRoute = { providerId: pick(provider), modelId: pick(model) };
 	const level = pick(reasoning).toLowerCase();
-	if (level === "low" || level === "medium" || level === "high" || level === "xhigh") route.reasoning = level;
+	if (level === "low" || level === "medium" || level === "high" || level === "xhigh" || level === "max" || level === "minimal") route.reasoning = level;
 	return route;
 }
 
@@ -80,7 +80,7 @@ export function parseRolesYaml(text: string): RolesTable {
       else if (kvMatch[1] === "model") table[role][slot].modelId = value;
       else {
         const level = value.toLowerCase();
-        if (level === "low" || level === "medium" || level === "high" || level === "xhigh") table[role][slot].reasoning = level;
+        if (level === "low" || level === "medium" || level === "high" || level === "xhigh" || level === "max" || level === "minimal") table[role][slot].reasoning = level;
         else delete table[role][slot].reasoning;
       }
     }
@@ -116,14 +116,20 @@ export function resolveRoute(
   role: RoleId,
   args: { providerId?: string; modelId?: string; reasoning?: string; isBackup?: boolean },
 ): ModelRoute {
+  const level = (args.reasoning ?? "").toLowerCase();
+  const override =
+    level === "low" || level === "medium" || level === "high" || level === "xhigh" || level === "max" || level === "minimal"
+      ? level
+      : "";
   if (args.providerId || args.modelId) {
     const route: ModelRoute = { providerId: args.providerId ?? "", modelId: args.modelId ?? "" };
-    const level = (args.reasoning ?? "").toLowerCase();
-    if (level === "low" || level === "medium" || level === "high" || level === "xhigh") route.reasoning = level;
+    if (override) route.reasoning = override;
     return route;
   }
   const entry = table[role];
-  return args.isBackup ? { ...entry.backup } : { ...entry.primary };
+  const base = args.isBackup ? { ...entry.backup } : { ...entry.primary };
+  if (override) base.reasoning = override;
+  return base;
 }
 
 export function configuredRoleCount(table: RolesTable): { primary: number; backup: number } {

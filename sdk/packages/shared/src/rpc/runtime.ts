@@ -5,7 +5,7 @@ import type {
 	ModelOperation,
 	ModelOperationMode,
 } from "../llms/model-info";
-import type { ReasoningLevel } from "../llms/reasoning-options";
+import type { ModelReasoningOption, ReasoningLevel } from "../llms/reasoning-options";
 import type {
 	RuntimeConfigExtensionKind,
 	SessionExecutionConfig,
@@ -175,6 +175,8 @@ export interface ProviderModel {
 	supportsAttachments?: boolean;
 	supportsVision?: boolean;
 	supportsReasoning?: boolean;
+	/** Per-model reasoning controls (effort values incl. max, toggle, budget). [+pavan] */
+	reasoningOptions?: ModelReasoningOption[];
 	operationModes?: ModelOperationMode[];
 	inputModalities?: ModelModality[];
 	outputModalities?: ModelModality[];

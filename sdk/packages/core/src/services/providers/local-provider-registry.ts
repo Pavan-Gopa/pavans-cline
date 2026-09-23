@@ -248,13 +248,13 @@ export function toProviderModel(
 		| "operation"
 		| "operationModes"
 		| "modalities"
+		| "reasoningOptions"
 	>,
 ): ProviderModel {
 	return {
 		id: modelId,
 		name: info.name ?? modelId,
 		...(info.description ? { description: info.description } : {}),
-		operation: info.operation,
 		...(info.contextWindow !== undefined
 			? { contextWindow: info.contextWindow }
 			: {}),
@@ -270,6 +270,7 @@ export function toProviderModel(
 		operationModes: info.operationModes,
 		inputModalities: info.modalities?.input,
 		outputModalities: info.modalities?.output,
+		...(info.reasoningOptions ? { reasoningOptions: [...info.reasoningOptions] } : {}),
 	};
 }
 

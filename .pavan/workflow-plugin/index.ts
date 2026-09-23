@@ -123,7 +123,7 @@ const plugin: AgentPlugin = {
             },
             provider_id: { type: "string", description: "Route override. Omit to use the role's configured route." },
             model_id: { type: "string", description: "Route override. Omit to use the role's configured route." },
-            reasoning_effort: { type: "string", enum: ["low", "medium", "high", "xhigh"], description: "Reasoning override. Omit to use the role's configured level (absent = None)." },
+            reasoning_effort: { type: "string", enum: ["low", "minimal", "medium", "high", "xhigh", "max"], description: "Reasoning override. Omit to use the role's configured level (absent = None)." },
             step: { type: "string", description: "Step id, e.g. S3." },
             work_item_id: { type: "string", description: "Stable ID from the active STEPS.md card." },
             goal: { type: "string", description: "One-paragraph goal for this worker." },

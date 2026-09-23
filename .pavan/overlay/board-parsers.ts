@@ -200,7 +200,7 @@ export function parseRolesYaml(
         const provider = val(p);
         const model = val(m);
         const level = val(q).toLowerCase();
-        const reasoning = level === "low" || level === "medium" || level === "high" || level === "xhigh" ? level : "";
+        const reasoning = level === "low" || level === "medium" || level === "high" || level === "xhigh" || level === "max" || level === "minimal" ? level : "";
         if (provider || model)
           table[role][slot] = `${provider}/${model}`
             .replace(/^\//, "")
@@ -218,9 +218,9 @@ export function parseRolesYaml(
       if (km[1] === "reasoning") {
         const level = value.toLowerCase();
         if (slot === "primary") {
-          if (level === "low" || level === "medium" || level === "high" || level === "xhigh") table[role].primaryReasoning = level;
+          if (level === "low" || level === "medium" || level === "high" || level === "xhigh" || level === "max" || level === "minimal") table[role].primaryReasoning = level;
           else delete table[role].primaryReasoning;
-        } else if (level === "low" || level === "medium" || level === "high" || level === "xhigh") table[role].backupReasoning = level;
+        } else if (level === "low" || level === "medium" || level === "high" || level === "xhigh" || level === "max" || level === "minimal") table[role].backupReasoning = level;
         else delete table[role].backupReasoning;
         continue;
       }
@@ -237,4 +237,47 @@ export function parseRolesYaml(
 
 export function isRouteReady(route: string): boolean {
   return route.includes("/") && !route.startsWith("/") && !route.endsWith("/");
+}
+
+export interface WorkflowMetricTail {
+  events: number;
+  byStatus: Record<string, number>;
+  last: Array<{ status: string; role?: string; step?: string }>;
+}
+
+/** Last events of metrics.jsonl. Passive display only — never gates routing. */
+export function parseWorkflowMetrics(text: string): WorkflowMetricTail {
+  const byStatus: Record<string, number> = {};
+  const last: Array<{ status: string; role?: string; step?: string }> = [];
+  if (!text) return { events: 0, byStatus, last };
+  let events = 0;
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    events += 1;
+    try {
+      const e = JSON.parse(t) as { status?: unknown; role?: unknown; step?: unknown };
+      const status = typeof e.status === "string" ? e.status : "unknown";
+      byStatus[status] = (byStatus[status] ?? 0) + 1;
+      last.push({
+        status,
+        ...(typeof e.role === "string" ? { role: e.role } : {}),
+        ...(typeof e.step === "string" ? { step: e.step } : {}),
+      });
+    } catch {
+      // broken line counts, but is not shown
+    }
+    if (events > 10000) break;
+  }
+  return { events, byStatus, last: last.slice(-8).reverse() };
+}
+
+/** Last non-empty lines of DECISIONS.md. */
+export function parseDecisionsTail(text: string, lines = 12): string {
+  if (!text) return "";
+  return text
+    .split("\n")
+    .filter((l) => l.trim())
+    .slice(-lines)
+    .join("\n");
 }

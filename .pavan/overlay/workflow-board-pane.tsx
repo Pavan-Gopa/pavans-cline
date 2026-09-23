@@ -29,10 +29,13 @@ import {
 } from "@/lib/provider-model-catalog";
 import {
 	isRouteReady,
+	parseDecisionsTail,
 	parseRolesYaml,
+	parseWorkflowMetrics,
 	parseWorkflowState,
 	parseWorkflowSteps,
 	type WorkflowMainState,
+	type WorkflowMetricTail,
 	type WorkflowStepCard,
 } from "./board-parsers";
 
@@ -47,7 +50,7 @@ export const WORKFLOW_ROLE_IDS = [
 ] as const;
 
 /** Reasoning effort per role. Пусто = None (без thinking). */
-export const WORKFLOW_REASONING_LEVELS = ["", "low", "medium", "high", "xhigh"] as const;
+export const WORKFLOW_REASONING_LEVELS = ["", "low", "minimal", "medium", "high", "xhigh", "max"] as const;
 
 export const WORKFLOW_ROLE_RU: Record<string, { name: string; hint: string }> = {
   coder: { name: "Код", hint: "пишет код по шагу" },
@@ -68,6 +71,8 @@ export interface WorkflowBoardSnapshot {
   state: WorkflowMainState | null;
   steps: WorkflowStepCard[];
   roles: Record<string, { primary: string; backup: string; primaryReasoning?: string; backupReasoning?: string }>;
+  metrics: WorkflowMetricTail;
+  decisions: string;
   generatedAt: string;
 }
 
@@ -95,10 +100,12 @@ export function useWorkflowBoard(
     const root = workspace.replace(/\/$/, "");
     (async () => {
       try {
-        const [stateRaw, stepsRaw, rolesRaw] = await Promise.all([
+        const [stateRaw, stepsRaw, rolesRaw, metricsRaw, decisionsRaw] = await Promise.all([
           io.readFile(`${root}/AI_Workflow_Kit/docs/AI/STATE.yaml`),
           io.readFile(`${root}/AI_Workflow_Kit/docs/STEPS.md`),
           io.readFile(`${root}/.cline/workflow-roles.yaml`),
+          io.readFile(`${root}/AI_Workflow_Kit/docs/AI/metrics.jsonl`),
+          io.readFile(`${root}/AI_Workflow_Kit/docs/DECISIONS.md`),
         ]);
         if (cancelled) return;
         if (!stateRaw && !stepsRaw) {
@@ -111,6 +118,8 @@ export function useWorkflowBoard(
           state: stateRaw ? parseWorkflowState(stateRaw) : null,
           steps: parseWorkflowSteps(stepsRaw ?? ""),
           roles: parseRolesYaml(rolesRaw ?? "", [...WORKFLOW_ROLE_IDS]).table,
+          metrics: parseWorkflowMetrics(metricsRaw ?? ""),
+          decisions: parseDecisionsTail(decisionsRaw ?? ""),
           generatedAt: new Date().toLocaleString("ru-RU"),
         });
       } catch (e) {
@@ -145,7 +154,7 @@ export function useWorkflowBoard(
           "roles:",
         ];
         const normReasoning = (v: unknown): string =>
-          v === "low" || v === "medium" || v === "high" || v === "xhigh" ? (v as string) : "";
+          v === "low" || v === "medium" || v === "high" || v === "xhigh" || v === "max" || v === "minimal" ? (v as string) : "";
         for (const r of WORKFLOW_ROLE_IDS) {
           const entry = r === role
             ? {
@@ -196,7 +205,8 @@ export function WorkflowBoardPane(props: {
   const { snapshot, loading, error, reload, saveRole } = useWorkflowBoard(props.workspace, props.io);
   const [providers, setProviders] = useState<Array<{ id: string; name: string; configured: boolean }>>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [modelsByProvider, setModelsByProvider] = useState<Record<string, string[]>>({});
+  const [modelsByProvider, setModelsByProvider] = useState<Record<string, Array<{ id: string; efforts: string[] }>>>({});
+  const EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
   const [pick, setPick] = useState<Record<string, { provider: string; model: string; reasoning?: string }>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState<Record<string, string>>({});
@@ -227,12 +237,20 @@ export function WorkflowBoardPane(props: {
     ? WORKFLOW_ROLE_IDS.filter((r) => isRouteReady(snapshot.roles[r]?.primary ?? "")).length
     : 0;
 
+  const effortsOf = (m: { reasoningOptions?: Array<{ type?: string; values?: Array<string | null> }> }): string[] => {
+    const eff = (m.reasoningOptions ?? []).find((o) => o?.type === "effort");
+    const vals = Array.isArray(eff?.values) ? eff.values.filter((v): v is string => typeof v === "string") : [];
+    return vals.filter((v) => (EFFORT_ORDER as readonly string[]).includes(v));
+  };
   const loadModels = useCallback(
     async (provider: string) => {
       if (!provider || modelsByProvider[provider]) return;
       try {
         const models = await loadProviderModels(provider);
-        setModelsByProvider((m) => ({ ...m, [provider]: models.map((x) => x.id) }));
+        setModelsByProvider((m) => ({
+          ...m,
+          [provider]: models.map((x) => ({ id: x.id, efforts: effortsOf(x as never) })),
+        }));
       } catch {
         // row keeps guidance; catalog error surfaces once at top
       }
@@ -266,6 +284,9 @@ export function WorkflowBoardPane(props: {
         <h2 className="text-base font-bold">Пульт воркфлоу</h2>
         <span className="rounded-full bg-amber-400 px-3 py-0.5 text-xs font-bold text-black">Шаг {live}</span>
         <span className="text-xs text-muted-foreground">Роли {readyCount}/7</span>
+        <span className="text-xs text-muted-foreground" title="Сессия — это Main. Маршруты ролей ниже применяются только к свежим воркерам.">
+          Оркестратор: эта сессия
+        </span>
         <button type="button" onClick={reload} className="ml-auto rounded-lg border px-3 py-1 text-xs">
           Обновить
         </button>
@@ -339,6 +360,9 @@ export function WorkflowBoardPane(props: {
             const curReasoning = snapshot?.roles[r]?.primaryReasoning ?? "";
             const sel = pick[r] ?? { provider: cur.split("/")[0] ?? "", model: "", reasoning: curReasoning };
             const models = modelsByProvider[sel.provider] ?? [];
+            const selEfforts =
+              models.find((m) => m.id === sel.model)?.efforts ??
+              [...new Set(models.flatMap((m) => m.efforts))];
             return (
               <div key={r} className="mb-2 grid grid-cols-[110px_1fr_1fr_110px_auto] items-center gap-2 rounded-xl border p-2">
                 <div>
@@ -367,13 +391,22 @@ export function WorkflowBoardPane(props: {
                   aria-label={`${r} model`}
                   value={sel.model}
                   disabled={!sel.provider || !models.length}
-                  onChange={(e) => setPick((p) => ({ ...p, [r]: { ...p[r], provider: sel.provider, model: e.target.value } }))}
+                  onChange={(e) => {
+                    const model = e.target.value;
+                    const effs = models.find((m) => m.id === model)?.efforts ?? [];
+                    setPick((p) => {
+                      const cur = p[r]?.reasoning;
+                      const keep = cur && (effs.length === 0 || effs.includes(cur)) ? cur : undefined;
+                      return { ...p, [r]: { ...p[r], provider: sel.provider, model, reasoning: keep } };
+                    });
+                  }}
                   className="rounded-lg border bg-transparent px-2 py-1 text-xs"
                 >
                   <option value="">— модель —</option>
                   {models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                    <option key={m.id} value={m.id}>
+                      {m.id}
+                      {m.efforts.length ? "" : " (без reasoning)"}
                     </option>
                   ))}
                 </select>
@@ -385,7 +418,7 @@ export function WorkflowBoardPane(props: {
                   className="rounded-lg border bg-transparent px-2 py-1 text-xs"
                 >
                   <option value="">— усилие —</option>
-                  {WORKFLOW_REASONING_LEVELS.filter((v) => v !== "").map((v) => (
+                  {(sel.model ? selEfforts : [...new Set(models.flatMap((m) => m.efforts))]).map((v) => (
                     <option key={v} value={v}>
                       {v}
                     </option>
@@ -405,6 +438,32 @@ export function WorkflowBoardPane(props: {
               </div>
             );
           })}
+          <h3 className="mb-1 mt-4 text-sm font-semibold">
+            Запуски <span className="font-normal text-muted-foreground">— пассивные, на роутинг не влияют</span>
+          </h3>
+          <div className="rounded-xl border p-2 text-[13px]">
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(snapshot?.metrics.byStatus ?? {}).length
+                ? Object.entries(snapshot?.metrics.byStatus ?? {}).map(([s, n]) => (
+                    <span key={s} className="rounded-full border px-2 py-0.5 text-[11px]">
+                      {s} × {n}
+                    </span>
+                  ))
+                : <span className="text-muted-foreground">запусков пока не было</span>}
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">{snapshot?.metrics.events ?? 0} событий</div>
+            {(snapshot?.metrics.last ?? []).map((e, i) => (
+              <div key={`${e.status}-${i}`} className="text-[12px]">
+                {e.step ? `${e.step} · ` : ""}{e.role ? `${e.role} · ` : ""}{e.status}
+              </div>
+            ))}
+          </div>
+          <h3 className="mb-1 mt-4 text-sm font-semibold">
+            Решения <span className="font-normal text-muted-foreground">— хвост</span>
+          </h3>
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border p-2 text-[11px]">
+            {snapshot?.decisions || "(DECISIONS.md пока нет)"}
+          </pre>
         </section>
       </div>
     </div>

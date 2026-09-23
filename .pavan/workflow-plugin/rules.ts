@@ -39,7 +39,7 @@ export const WORKFLOW_RULES: WorkflowRule[] = [
       "Default pipeline is SEQUENTIAL against one live workspace: Coder -> Main verify -> Reviewer -> Main verify -> Tester -> Main verify -> close. Never parallelize Coder/Reviewer/Tester on the same workspace. Parallel fan-out is for independent READ-ONLY investigation only.",
       "Profiles from the step card (unlabeled = standard): standard (full loop), quick (Human-labeled only; may skip Reviewer/Tester after Main reruns ALL gates and verifies the real diff; FORBIDDEN on high risk or security/contract hits), critical (Reviewer+Tester stay on; offer scoped Security pass on blast radius).",
       "Spawn discipline per worker: validate role route configured (providerId+modelId); enforce role tool policies (read-only roles: editor/apply_patch disabled); assignment = goal, step, stable ID, exact target/allowed paths, exclusions, Objective + Judgment gates, compact verified retry facts. Nothing more.",
-      "Main model: the session model IS Main. Worker routes are independent per-role {providerId, modelId} and apply on next fresh spawn.",
+      "Main model: the session model IS Main. Worker routes are independent per-role {providerId, modelId, reasoning} and apply on next fresh spawn. When the Human asks why this model, who is orchestrating, or presses the model-switch shortcut: answer with THIS session's provider/model (you are Main), then the role table from workflow_roles (provider/model:reasoning, empty reasoning = None). Never claim a worker route is yours.",
     ].join("\n"),
   },
 ];

@@ -27,6 +27,8 @@ export interface ProviderModel {
 	supportsAttachments?: boolean;
 	supportsVision?: boolean;
 	supportsReasoning?: boolean;
+	/** Per-model reasoning controls (effort values incl. max, toggle, budget). [+pavan] */
+	reasoningOptions?: Array<{ type: string; values?: Array<string | null>; min?: number; max?: number }>;
 	inputModalities?: ModelModality[];
 	outputModalities?: ModelModality[];
 }

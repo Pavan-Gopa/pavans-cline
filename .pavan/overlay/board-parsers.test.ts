@@ -95,3 +95,25 @@ test("dashboard.mjs parity: same fixture, same card/item count", async () => {
   const s1 = cards.find((c) => c.id === "S1");
   assert.ok(s1 && s1.total === 6, `S1 should carry 2 do + 2 objective + 2 judgment, got ${s1?.total}`);
 });
+
+test("metrics: counts statuses, keeps last eight newest-first, skips broken lines", async () => {
+  const { parseWorkflowMetrics } = await loadParsers();
+  const lines = [
+    '{"status":"waiting_review","role":"coder","step":"S1"}',
+    "not-json",
+    '{"status":"approved","role":"reviewer"}',
+  ];
+  const m = parseWorkflowMetrics(lines.join("\n"));
+  assert.equal(m.events, 3);
+  assert.equal(m.byStatus.waiting_review, 1);
+  assert.equal(m.byStatus.approved, 1);
+  assert.equal(m.last[0]?.status, "approved");
+  assert.equal(m.last[1]?.role, "coder");
+});
+
+test("decisions: last non-empty lines only", async () => {
+  const { parseDecisionsTail } = await loadParsers();
+  const text = ["# decisions", "", "D1 keep", "", "D2 keep"].join("\n");
+  assert.equal(parseDecisionsTail(text, 2), "D1 keep\nD2 keep");
+  assert.equal(parseDecisionsTail(""), "");
+});

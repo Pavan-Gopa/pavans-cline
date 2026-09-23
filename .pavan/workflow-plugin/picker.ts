@@ -217,7 +217,7 @@ const workflowPick = createTool({
       provider: { type: "string", description: "Provider id from workflow_providers." },
       model: { type: "string", description: "Model id from workflow_models." },
       slot: { type: "string", enum: ["primary", "backup"], description: "Which slot. Default primary." },
-      reasoning: { type: "string", enum: ["low", "medium", "high", "xhigh"], description: "Reasoning effort for this role. Omit = None." },
+      reasoning: { type: "string", enum: ["low", "minimal", "medium", "high", "xhigh", "max"], description: "Reasoning effort for this role. Omit = None." },
       human_backup_authorization: { type: "string", description: "Exact Human words; required for slot=backup." },
       project: { type: "string", description: "Workspace root override. Defaults to the session root." },
     },
@@ -257,7 +257,7 @@ const workflowPick = createTool({
     const nextRoute = { providerId, modelId };
     const levelRaw = optionalString(args, "reasoning") ?? "";
     const level = levelRaw.toLowerCase();
-    if (level === "low" || level === "medium" || level === "high" || level === "xhigh") {
+    if (level === "low" || level === "medium" || level === "high" || level === "xhigh" || level === "max" || level === "minimal") {
       (nextRoute as { reasoning?: string }).reasoning = level;
     }
     table[role][slot] = nextRoute;
