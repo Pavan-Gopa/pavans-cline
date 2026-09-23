@@ -130,15 +130,25 @@ export function buildConfiguredAgentToolDescriptors(
 	return descriptors;
 }
 
-function buildAgentRuntimeConfig(
+export function buildAgentRuntimeConfig(
 	base: DelegatedAgentRuntimeConfig,
 	agent: ConfiguredAgentConfig,
 ): DelegatedAgentRuntimeConfig {
+	const providerId = agent.providerId ?? base.providerId;
+	const switchesProvider = !!agent.providerId && agent.providerId !== base.providerId;
 	return {
 		...base,
-		providerId: agent.providerId ?? base.providerId,
+		providerId,
 		modelId: agent.modelId ?? base.modelId,
 		maxIterations: agent.maxIterations ?? base.maxIterations,
+		// Cross-provider spawn must NOT inherit the parent's connection: a
+		// foreign apiKey/baseUrl/headers poisons credential resolution
+		// downstream (the parent's key wins over the worker provider's own
+		// vault token and the request fails as another account). Clearing
+		// them lets session bootstrap resolve the worker provider's own
+		// stored credentials, exactly like a fresh interactive session.
+		// Same-provider agents keep everything (proven path, zero change).
+		...(switchesProvider ? { apiKey: undefined, baseUrl: undefined, headers: undefined } : {}),
 	};
 }
 
