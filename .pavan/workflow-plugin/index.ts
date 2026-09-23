@@ -18,7 +18,8 @@ import {
 import { WORKFLOW_RULES } from "./rules.js";
 import { buildAssignmentPacket, validateSpawn, ROLE_ORDER, type RoleId } from "./roles.js";
 import { configuredRoleCount, loadRoles, resolveRoute } from "./roles-config.js";
-import { appendMetricsEvent, knownWorkspaceRoots, setWorkspaceRoot, workflowTools } from "./tools.js";
+import { appendMetricsEvent, knownWorkspaceRoots, workflowTools } from "./tools.js";
+import { setWorkspaceRoot } from "./project-roots.js";
 import { pickerTools } from "./picker.js";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";

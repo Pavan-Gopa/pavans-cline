@@ -49,22 +49,24 @@ export const WORKFLOW_ROLE_IDS = [
   "designer",
 ] as const;
 
-/** Reasoning effort per role. Пусто = None (без thinking). */
+/** Reasoning effort per role. Empty = None (no thinking). */
 export const WORKFLOW_REASONING_LEVELS = ["", "low", "minimal", "medium", "high", "xhigh", "max"] as const;
 
-export const WORKFLOW_ROLE_RU: Record<string, { name: string; hint: string }> = {
-  coder: { name: "Код", hint: "пишет код по шагу" },
-  reviewer: { name: "Проверка", hint: "независимая проверка (другая модель!)" },
-  tester: { name: "Тесты", hint: "запускает тесты, добавляет падающие" },
-  architect: { name: "Архитектура", hint: "вторая голова при неясном дизайне" },
-  security: { name: "Безопасность", hint: "аудит перед релизом" },
-  design_advisor: { name: "Дизайн-совет", hint: "советы по интерфейсу текстом" },
-  designer: { name: "Дизайн", hint: "правит интерфейс руками" },
+export const WORKFLOW_ROLE_META: Record<string, { name: string; hint: string }> = {
+  coder: { name: "Code", hint: "implements the step" },
+  reviewer: { name: "Review", hint: "independent check (different model!)" },
+  tester: { name: "Tests", hint: "runs tests, adds failing ones" },
+  architect: { name: "Architect", hint: "second opinion on unclear design" },
+  security: { name: "Security", hint: "audit before release" },
+  design_advisor: { name: "Design advice", hint: "UI advice as text" },
+  designer: { name: "Designer", hint: "edits the UI directly" },
 };
 
 export interface PavanFileReader {
   readFile: (absPath: string) => Promise<string | null>;
   writeFile: (absPath: string, content: string) => Promise<void>;
+  /** One-time project setup: roles file + Main rules, never overwrites. */
+  setupProject: () => Promise<{ ok: boolean; created: string[]; error?: string }>;
 }
 
 export interface WorkflowBoardSnapshot {
@@ -73,6 +75,8 @@ export interface WorkflowBoardSnapshot {
   roles: Record<string, { primary: string; backup: string; primaryReasoning?: string; backupReasoning?: string }>;
   metrics: WorkflowMetricTail;
   decisions: string;
+  /** No roles file and no kit docs — the board offers one-time setup. */
+  needsSetup: boolean;
   generatedAt: string;
 }
 
@@ -108,11 +112,10 @@ export function useWorkflowBoard(
           io.readFile(`${root}/AI_Workflow_Kit/docs/DECISIONS.md`),
         ]);
         if (cancelled) return;
-        if (!stateRaw && !stepsRaw) {
-          setError("В этой папке нет воркфлоу-кита — открой проект с AI_Workflow_Kit/");
-          setSnapshot(null);
-          return;
-        }
+        // Roles work without kit docs and vice versa: the board shows whatever
+        // exists. All three missing means a fresh folder — offer one-time setup
+        // instead of a dead end.
+        const needsSetup = !stateRaw && !stepsRaw && !rolesRaw;
         setError(null);
         setSnapshot({
           state: stateRaw ? parseWorkflowState(stateRaw) : null,
@@ -120,7 +123,8 @@ export function useWorkflowBoard(
           roles: parseRolesYaml(rolesRaw ?? "", [...WORKFLOW_ROLE_IDS]).table,
           metrics: parseWorkflowMetrics(metricsRaw ?? ""),
           decisions: parseDecisionsTail(decisionsRaw ?? ""),
-          generatedAt: new Date().toLocaleString("ru-RU"),
+          needsSetup,
+          generatedAt: new Date().toLocaleString("en-US"),
         });
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -136,14 +140,14 @@ export function useWorkflowBoard(
   const saveRole = useCallback(
     async (role: string, provider: string, model: string, reasoning?: string) => {
       if (!WORKFLOW_ROLE_IDS.includes(role as (typeof WORKFLOW_ROLE_IDS)[number])) {
-        return { ok: false, error: "неизвестная роль" };
+        return { ok: false, error: "unknown role" };
       }
-      if (!provider || !model) return { ok: false, error: "нужны и провайдер, и модель" };
+      if (!provider || !model) return { ok: false, error: "provider and model are required" };
       try {
         const current = snapshot?.roles ?? {};
         const lines = [
-          "# Маршруты ролей — правит пульт. Руками тоже можно.",
-          "# Пусто = роль заблокирована, тихой подмены нет.",
+          "# Role routes — managed by the board. Hand edits welcome.",
+          "# Empty = role blocked, never silently replaced.",
           "",
           "version: 1",
           "",
@@ -232,7 +236,7 @@ export function WorkflowBoardPane(props: {
     };
   }, []);
 
-  const live = snapshot?.state?.current_step || "(нет)";
+  const live = snapshot?.state?.current_step || "(none)";
   const readyCount = snapshot
     ? WORKFLOW_ROLE_IDS.filter((r) => isRouteReady(snapshot.roles[r]?.primary ?? "")).length
     : 0;
@@ -258,11 +262,35 @@ export function WorkflowBoardPane(props: {
     [modelsByProvider],
   );
 
+  // Saved routes are the source of truth: on every snapshot load, fill picks
+  // the user has not touched yet, so leaving the view and coming back (or
+  // pressing Refresh) shows assigned models instead of empty selects.
+  // Also preloads model lists for restored providers.
+  useEffect(() => {
+    if (!snapshot) return;
+    const needed: string[] = [];
+    setPick((prev) => {
+      const next = { ...prev };
+      for (const r of WORKFLOW_ROLE_IDS) {
+        if (prev[r]) continue;
+        const cur = snapshot.roles[r]?.primary ?? "";
+        const i = cur.indexOf("/");
+        const provider = i < 0 ? cur : cur.slice(0, i);
+        const model = i < 0 ? "" : cur.slice(i + 1);
+        if (!provider && !model) continue;
+        next[r] = { provider, model, reasoning: snapshot.roles[r]?.primaryReasoning || undefined };
+        if (provider) needed.push(provider);
+      }
+      return next;
+    });
+    for (const p of [...new Set(needed)]) void loadModels(p);
+  }, [snapshot, loadModels]);
+
   const onSave = useCallback(
     async (role: string) => {
       const sel = pick[role];
       if (!sel?.provider || !sel?.model) {
-        setStatus((s) => ({ ...s, [role]: "сначала выбери провайдера и модель" }));
+        setStatus((s) => ({ ...s, [role]: "pick a provider and model first" }));
         return;
       }
       setSaving((s) => ({ ...s, [role]: true }));
@@ -271,58 +299,99 @@ export function WorkflowBoardPane(props: {
       setStatus((s) => ({
         ...s,
         [role]: r.ok
-          ? `✓ ${sel.provider}/${sel.model}${sel.reasoning ? `:${sel.reasoning}` : ""} — активно`
-          : (r.error ?? "не сохранилось"),
+          ? `✓ ${sel.provider}/${sel.model}${sel.reasoning ? `:${sel.reasoning}` : ""} — active`
+          : (r.error ?? "save failed"),
       }));
     },
     [pick, saveRole],
   );
 
+  const [settingUp, setSettingUp] = useState(false);
+  const [setupMsg, setSetupMsg] = useState<string | null>(null);
+  const onSetup = useCallback(async () => {
+    setSettingUp(true);
+    try {
+      const r = await props.io.setupProject();
+      setSetupMsg(
+        r.ok
+          ? r.created.length
+            ? `Created ${r.created.length} file(s). Now assign models below — each save also arms that role's spawn tool.`
+            : "Already set up. Assign models below."
+          : (r.error ?? "setup failed"),
+      );
+      reload();
+    } catch (e) {
+      setSetupMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSettingUp(false);
+    }
+  }, [props.io, reload]);
+
   return (
     <div data-pavan="workflow-board" className="flex min-h-0 flex-1 flex-col overflow-auto p-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-base font-bold">Пульт воркфлоу</h2>
-        <span className="rounded-full bg-amber-400 px-3 py-0.5 text-xs font-bold text-black">Шаг {live}</span>
-        <span className="text-xs text-muted-foreground">Роли {readyCount}/7</span>
-        <span className="text-xs text-muted-foreground" title="Сессия — это Main. Маршруты ролей ниже применяются только к свежим воркерам.">
-          Оркестратор: эта сессия
+        <h2 className="text-base font-bold">Workflow board</h2>
+        <span className="rounded-full bg-amber-400 px-3 py-0.5 text-xs font-bold text-black">Step {live}</span>
+        <span className="text-xs text-muted-foreground">Roles {readyCount}/7</span>
+        <span className="text-xs text-muted-foreground" title="This session is Main. Role routes below apply to fresh workers only.">
+          Orchestrator: this session
         </span>
         <button type="button" onClick={reload} className="ml-auto rounded-lg border px-3 py-1 text-xs">
-          Обновить
+          Refresh
         </button>
       </div>
+      {snapshot?.needsSetup && (
+        <div className="mb-3 rounded-xl border border-amber-400 p-3 text-[13px]">
+          <strong>No workflow files in this folder yet.</strong>
+          <span className="text-muted-foreground">
+            {" "}Set up creates <code>.cline/workflow-roles.yaml</code> (empty = every spawn blocked) and{" "}
+            <code>.cline/rules/pavans-workflow.md</code> (Main's contract + spawn tools). Your code is never touched.
+          </span>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void onSetup()}
+              disabled={settingUp}
+              className="rounded-lg bg-amber-400 px-3 py-1 text-xs font-bold text-black"
+            >
+              {settingUp ? "…" : "Set up workflow here"}
+            </button>
+            {setupMsg && <span className="text-[12px] text-muted-foreground">{setupMsg}</span>}
+          </div>
+        </div>
+      )}
       {catalogError && (
         <p className="mb-2 text-xs text-red-500">
-          Каталог провайдеров недоступен: {catalogError}{" "}
+          Provider catalog unavailable: {catalogError}{" "}
           {props.onOpenProviders && (
             <button type="button" className="underline" onClick={props.onOpenProviders}>
-              Открыть провайдеры
+              Open providers
             </button>
           )}
         </p>
       )}
-      {loading && <p className="text-sm text-muted-foreground">Читаю STATE.yaml / STEPS.md…</p>}
+      {loading && <p className="text-sm text-muted-foreground">Reading STATE.yaml / STEPS.md…</p>}
       {error && <p className="text-sm text-red-500">{error}</p>}
       {snapshot?.state && (
         <div className="mb-3 grid grid-cols-2 gap-2 text-[13px] md:grid-cols-4">
           <div>
-            Работа: <strong>{snapshot.state.status || "?"}</strong>
+            Status: <strong>{snapshot.state.status || "?"}</strong>
           </div>
-          <div>Провалов подряд: {snapshot.state.repeated_failure_count || "0"}/3</div>
-          <div>Проверка: {snapshot.state.verdict || "?"}</div>
+          <div>Repeat failures: {snapshot.state.repeated_failure_count || "0"}/3</div>
+          <div>Verdict: {snapshot.state.verdict || "?"}</div>
           <div>
-            Профиль: {snapshot.state.pipeline_profile || "?"}
-            {snapshot.state.quick_forbidden === "true" ? " · быстрый ЗАПРЕЩЁН" : ""}
+            Profile: {snapshot.state.pipeline_profile || "?"}
+            {snapshot.state.quick_forbidden === "true" ? " · quick FORBIDDEN" : ""}
           </div>
         </div>
       )}
       <div className="grid gap-3 lg:grid-cols-2">
         <section>
-          <h3 className="mb-1 text-sm font-semibold">Шаги ({snapshot?.steps.length ?? 0})</h3>
+          <h3 className="mb-1 text-sm font-semibold">Steps ({snapshot?.steps.length ?? 0})</h3>
           {(snapshot?.steps ?? []).map((c) => (
             <article key={c.id} className={`mb-2 rounded-xl border p-3 ${c.id === live ? "border-amber-400" : ""}`}>
               <header className="text-[13px]">
-                {c.id === live && <span className="mr-1 font-bold text-amber-400">● сейчас</span>}
+                {c.id === live && <span className="mr-1 font-bold text-amber-400">● live</span>}
                 <strong>{c.id}</strong> · {c.title} <span className="text-muted-foreground">· {c.done}/{c.total}</span>
               </header>
               <div className="my-1 h-1.5 rounded bg-black/30">
@@ -334,7 +403,7 @@ export function WorkflowBoardPane(props: {
               {(["do", "objective", "judgment"] as const).map((kind) => {
                 const list = c.items.filter((it) => it.kind === kind);
                 if (!list.length) return null;
-                const title = kind === "do" ? "Дела" : kind === "objective" ? "Проверки (команды)" : "Проверки (смысл)";
+                const title = kind === "do" ? "Tasks" : kind === "objective" ? "Objective gates" : "Judgment gates";
                 return (
                   <div key={kind}>
                     <div className="mt-1 text-xs text-muted-foreground">{title}</div>
@@ -354,7 +423,7 @@ export function WorkflowBoardPane(props: {
           ))}
         </section>
         <section>
-          <h3 className="mb-1 text-sm font-semibold">Роли {readyCount}/7</h3>
+          <h3 className="mb-1 text-sm font-semibold">Roles {readyCount}/7</h3>
           {WORKFLOW_ROLE_IDS.map((r) => {
             const cur = snapshot?.roles[r]?.primary ?? "";
             const curReasoning = snapshot?.roles[r]?.primaryReasoning ?? "";
@@ -366,8 +435,8 @@ export function WorkflowBoardPane(props: {
             return (
               <div key={r} className="mb-2 grid grid-cols-[110px_1fr_1fr_110px_auto] items-center gap-2 rounded-xl border p-2">
                 <div>
-                  <strong className="block text-[13px]">{WORKFLOW_ROLE_RU[r].name}</strong>
-                  <span className="block text-[11px] text-muted-foreground">{WORKFLOW_ROLE_RU[r].hint}</span>
+                  <strong className="block text-[13px]">{WORKFLOW_ROLE_META[r].name}</strong>
+                  <span className="block text-[11px] text-muted-foreground">{WORKFLOW_ROLE_META[r].hint}</span>
                 </div>
                 <select
                   aria-label={`${r} provider`}
@@ -379,7 +448,7 @@ export function WorkflowBoardPane(props: {
                   }}
                   className="rounded-lg border bg-transparent px-2 py-1 text-xs"
                 >
-                  <option value="">— провайдер —</option>
+                  <option value="">— provider —</option>
                   {providers.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.id}
@@ -402,22 +471,22 @@ export function WorkflowBoardPane(props: {
                   }}
                   className="rounded-lg border bg-transparent px-2 py-1 text-xs"
                 >
-                  <option value="">— модель —</option>
+                  <option value="">— model —</option>
                   {models.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.id}
-                      {m.efforts.length ? "" : " (без reasoning)"}
+                      {m.efforts.length ? "" : " (no reasoning)"}
                     </option>
                   ))}
                 </select>
                 <select
                   aria-label={`${r} reasoning effort`}
                   value={sel.reasoning ?? ""}
-                  title="Глубина рассуждений (thinking). Пусто = None."
+                  title="Reasoning depth. Empty = None."
                   onChange={(e) => setPick((p) => ({ ...p, [r]: { ...p[r], provider: sel.provider, model: sel.model, reasoning: e.target.value || undefined } }))}
                   className="rounded-lg border bg-transparent px-2 py-1 text-xs"
                 >
-                  <option value="">— усилие —</option>
+                  <option value="">— effort —</option>
                   {(sel.model ? selEfforts : [...new Set(models.flatMap((m) => m.efforts))]).map((v) => (
                     <option key={v} value={v}>
                       {v}
@@ -430,16 +499,16 @@ export function WorkflowBoardPane(props: {
                   disabled={!!saving[r]}
                   className="rounded-lg bg-amber-400 px-3 py-1 text-xs font-bold text-black"
                 >
-                  {saving[r] ? "…" : "Сохранить"}
+                  {saving[r] ? "…" : "Save"}
                 </button>
                 <span className="col-span-5 text-[11px] text-muted-foreground">
-                  {status[r] ?? ((cur ? `${cur}${curReasoning ? `:${curReasoning}` : ""}` : "") || "не назначена — запуск заблокирован")}
+                  {status[r] ?? ((cur ? `${cur}${curReasoning ? `:${curReasoning}` : ""}` : "") || "unassigned — spawn blocked")}
                 </span>
               </div>
             );
           })}
           <h3 className="mb-1 mt-4 text-sm font-semibold">
-            Запуски <span className="font-normal text-muted-foreground">— пассивные, на роутинг не влияют</span>
+            Runs <span className="font-normal text-muted-foreground">— passive, never gate routing</span>
           </h3>
           <div className="rounded-xl border p-2 text-[13px]">
             <div className="flex flex-wrap gap-1">
@@ -449,9 +518,9 @@ export function WorkflowBoardPane(props: {
                       {s} × {n}
                     </span>
                   ))
-                : <span className="text-muted-foreground">запусков пока не было</span>}
+                : <span className="text-muted-foreground">no runs yet</span>}
             </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">{snapshot?.metrics.events ?? 0} событий</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">{snapshot?.metrics.events ?? 0} events</div>
             {(snapshot?.metrics.last ?? []).map((e, i) => (
               <div key={`${e.status}-${i}`} className="text-[12px]">
                 {e.step ? `${e.step} · ` : ""}{e.role ? `${e.role} · ` : ""}{e.status}
@@ -459,10 +528,10 @@ export function WorkflowBoardPane(props: {
             ))}
           </div>
           <h3 className="mb-1 mt-4 text-sm font-semibold">
-            Решения <span className="font-normal text-muted-foreground">— хвост</span>
+            Решения <span className="font-normal text-muted-foreground">— tail</span>
           </h3>
           <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border p-2 text-[11px]">
-            {snapshot?.decisions || "(DECISIONS.md пока нет)"}
+            {snapshot?.decisions || "(no DECISIONS.md yet)"}
           </pre>
         </section>
       </div>

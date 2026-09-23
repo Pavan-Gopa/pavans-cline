@@ -30,13 +30,13 @@ export const WORKFLOW_ROLE_IDS = [
 export type WorkflowRoleId = (typeof WORKFLOW_ROLE_IDS)[number];
 
 const ROLE_META: Record<WorkflowRoleId, { name: string; hint: string }> = {
-  coder: { name: "Код", hint: "пишет код по шагу" },
-  reviewer: { name: "Проверка", hint: "независимая проверка (другая модель!)" },
-  tester: { name: "Тесты", hint: "запускает тесты, добавляет падающие" },
-  architect: { name: "Архитектура", hint: "вторая голова при неясном дизайне" },
-  security: { name: "Безопасность", hint: "аудит перед релизом" },
-  design_advisor: { name: "Дизайн-совет", hint: "советы по интерфейсу текстом" },
-  designer: { name: "Дизайн", hint: "правит интерфейс руками" },
+  coder: { name: "Code", hint: "implements the step" },
+  reviewer: { name: "Review", hint: "independent check (different model!)" },
+  tester: { name: "Tests", hint: "runs tests, adds failing ones" },
+  architect: { name: "Architect", hint: "second opinion on unclear design" },
+  security: { name: "Security", hint: "audit before release" },
+  design_advisor: { name: "Design advice", hint: "UI advice as text" },
+  designer: { name: "Designer", hint: "edits the UI directly" },
 };
 
 function normReasoning(v: unknown): string {
@@ -82,6 +82,26 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
     };
   }, []);
 
+  const effortsOf = (m: { reasoningOptions?: Array<{ type?: string; values?: Array<string | null> }> }): string[] => {
+    const eff = (m.reasoningOptions ?? []).find((o) => o?.type === "effort");
+    const vals = Array.isArray(eff?.values) ? eff.values.filter((v): v is string => typeof v === "string") : [];
+    return vals.filter((v) => (EFFORT_ORDER as readonly string[]).includes(v));
+  };
+  const loadModels = useCallback(
+    async (provider: string) => {
+      if (!provider) return;
+      try {
+        const models = await loadProviderModels(provider);
+        setModelsByProvider((m) => ({
+          ...m,
+          [provider]: models.map((x) => ({ id: x.id, efforts: effortsOf(x as never) })),
+        }));
+      } catch {
+        // row keeps guidance
+      }
+    },
+    [],
+  );
   const loadRoles = useCallback(async () => {
     try {
       const ws = props.workspace;
@@ -94,7 +114,7 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
       }
       const res = await desktopClient.invoke<{ files: Record<string, string | null> }>(
         "pavan_read_workspace_files",
-        { paths },
+        { paths, workspaceRoot: ws },
       );
       const raw = res.files[paths[0]];
       if (!raw) {
@@ -135,11 +155,27 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
         }
       }
       setRoles(table);
+      // Saved routes are the source of truth: reseed picks the user has not
+      // touched, so the row shows provider/model/effort after reload.
+      setPick((prev) => {
+        const next = { ...prev };
+        for (const r of WORKFLOW_ROLE_IDS) {
+          if (prev[r]) continue;
+          const p = splitRoute(table[r]?.primary ?? "");
+          if (!p.provider && !p.model) continue;
+          next[r] = { provider: p.provider, model: p.model, reasoning: table[r]?.primaryReasoning || undefined };
+        }
+        return next;
+      });
+      for (const r of WORKFLOW_ROLE_IDS) {
+        const p = splitRoute(table[r]?.primary ?? "").provider;
+        if (p) void loadModels(p);
+      }
       setRolesLoaded(true);
     } catch {
       setRolesLoaded(true);
     }
-  }, [props.workspace]);
+  }, [props.workspace, loadModels]);
 
   useEffect(() => {
     void loadRoles();
@@ -150,39 +186,19 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
     [roles],
   );
 
-  const effortsOf = (m: { reasoningOptions?: Array<{ type?: string; values?: Array<string | null> }> }): string[] => {
-    const eff = (m.reasoningOptions ?? []).find((o) => o?.type === "effort");
-    const vals = Array.isArray(eff?.values) ? eff.values.filter((v): v is string => typeof v === "string") : [];
-    return vals.filter((v) => (EFFORT_ORDER as readonly string[]).includes(v));
-  };
-  const loadModels = useCallback(
-    async (provider: string) => {
-      if (!provider) return;
-      try {
-        const models = await loadProviderModels(provider);
-        setModelsByProvider((m) => ({
-          ...m,
-          [provider]: models.map((x) => ({ id: x.id, efforts: effortsOf(x as never) })),
-        }));
-      } catch {
-        // row keeps guidance
-      }
-    },
-    [],
-  );
 
   const onSave = useCallback(
     async (role: string) => {
       const sel = pick[role];
       if (!sel?.provider || !sel?.model) {
-        setStatus((s) => ({ ...s, [role]: "сначала выбери провайдера и модель" }));
+        setStatus((s) => ({ ...s, [role]: "pick a provider and model first" }));
         return;
       }
       setSaving((s) => ({ ...s, [role]: true }));
       try {
         const lines = [
-          "# Маршруты ролей — правит пульт. Руками тоже можно.",
-          "# Пусто = роль заблокирована, тихой подмены нет.",
+          "# Role routes — managed by the board. Hand edits welcome.",
+          "# Empty = role blocked, never silently replaced.",
           "",
           "version: 1",
           "",
@@ -205,11 +221,11 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
           lines.push(`    backup: { provider: "${b.provider}", model: "${b.model}" }`);
           lines.push("");
         }
-        await desktopClient.invoke("pavan_write_workflow_roles", { content: lines.join("\n") });
-        setStatus((s) => ({ ...s, [role]: `✓ ${sel.provider}/${sel.model}${normReasoning(sel.reasoning) ? `:${normReasoning(sel.reasoning)}` : ""} — активно` }));
+        await desktopClient.invoke("pavan_write_workflow_roles", { content: lines.join("\n"), workspaceRoot: props.workspace ?? "" });
+        setStatus((s) => ({ ...s, [role]: `✓ ${sel.provider}/${sel.model}${normReasoning(sel.reasoning) ? `:${normReasoning(sel.reasoning)}` : ""} — active` }));
         await loadRoles();
       } catch (e) {
-        setStatus((s) => ({ ...s, [role]: e instanceof Error ? e.message : "не сохранилось" }));
+        setStatus((s) => ({ ...s, [role]: e instanceof Error ? e.message : "save failed" }));
       } finally {
         setSaving((s) => ({ ...s, [role]: false }));
       }
@@ -220,14 +236,14 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
 	return (
     <div className="flex h-full flex-col gap-3 overflow-auto p-4">
       <div>
-        <h2 className="text-base font-bold">Роли воркфлоу {readyCount}/7</h2>
+        <h2 className="text-base font-bold">Workflow roles {readyCount}/7</h2>
         <p className="text-xs text-muted-foreground">
-          Провайдер → модель → Сохранить. Тот же файл, что читают пульт и плагин. Запасные составы — только твоими
-          словами в чате (/workflow pick). Пустая роль = запуск заблокирован, тихой подмены нет.
+          Provider → model → Save. Same file the board and plugin read. Backup routes
+          only via your words in chat (/workflow pick). Empty role = spawn blocked, never silently replaced.
         </p>
       </div>
-      {catalogError && <p className="text-xs text-red-500">Каталог недоступен: {catalogError}</p>}
-      {!rolesLoaded && <p className="text-xs text-muted-foreground">Читаю роли…</p>}
+      {catalogError && <p className="text-xs text-red-500">Catalog unavailable: {catalogError}</p>}
+      {!rolesLoaded && <p className="text-xs text-muted-foreground">Reading roles…</p>}
       {WORKFLOW_ROLE_IDS.map((r) => {
         const cur = roles[r]?.primary ?? "";
         const curReasoning = roles[r]?.primaryReasoning ?? "";
@@ -251,7 +267,7 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
               }}
               className="rounded-lg border bg-transparent px-2 py-1 text-xs"
             >
-              <option value="">— провайдер —</option>
+              <option value="">— provider —</option>
               {providers.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.id}
@@ -274,18 +290,18 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
               }}
               className="rounded-lg border bg-transparent px-2 py-1 text-xs"
             >
-              <option value="">— модель —</option>
+              <option value="">— model —</option>
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.id}
-                  {m.efforts.length ? "" : " (без reasoning)"}
+                  {m.efforts.length ? "" : " (no reasoning)"}
                 </option>
               ))}
             </select>
             <select
               aria-label={`${r} reasoning effort`}
               value={sel.reasoning ?? ""}
-              title="Глубина рассуждений. Пусто = None."
+              title="Reasoning depth. Empty = None."
               onChange={(e) =>
                 setPick((p) => ({
                   ...p,
@@ -294,7 +310,7 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
               }
               className="rounded-lg border bg-transparent px-2 py-1 text-xs"
             >
-              <option value="">— усилие —</option>
+              <option value="">— effort —</option>
               {(sel.model ? selEfforts : [...new Set(models.flatMap((m) => m.efforts))]).map((v) => (
                 <option key={v} value={v}>
                   {v}
@@ -302,12 +318,12 @@ export function RolesContent(props: { workspace?: string }): React.JSX.Element {
               ))}
             </select>
             <Button type="button" size="sm" disabled={!!saving[r]} onClick={() => void onSave(r)}>
-              {saving[r] ? "…" : "Сохранить"}
+              {saving[r] ? "…" : "Save"}
             </Button>
             <span className="col-span-5 text-[11px] text-muted-foreground">
               {status[r] ??
-                (cur ? `${cur}${curReasoning ? `:${curReasoning}` : ""}` : "не назначена — запуск заблокирован")}
-              {roles[r]?.backup ? ` · запас: ${roles[r].backup}` : ""}
+                (cur ? `${cur}${curReasoning ? `:${curReasoning}` : ""}` : "unassigned — spawn blocked")}
+              {roles[r]?.backup ? ` · backup: ${roles[r].backup}` : ""}
             </span>
           </div>
         );

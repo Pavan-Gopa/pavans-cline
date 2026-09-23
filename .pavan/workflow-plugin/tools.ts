@@ -18,22 +18,7 @@ const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 /** Bundled scripts — resolve via import.meta.url, never process.cwd(). */
 export const SCRIPTS_DIR = join(MODULE_DIR, "..", "scripts");
 
-const rootsBySession = new Map<string, string>();
-
-export function setWorkspaceRoot(sessionId: string | undefined, root: string | undefined): void {
-  if (sessionId && root) rootsBySession.set(sessionId, root);
-}
-/** Known session workspace roots (insertion order). Display layer only. */
-export function knownWorkspaceRoots(): IterableIterator<string> {
-  return rootsBySession.values();
-}
-
-/** Session root from setup(), else the host cwd. Never throws. */
-export function resolveProjectRoot(override?: string): string {
-  if (override) return override;
-  const first = rootsBySession.values().next();
-  return !first.done && first.value ? first.value : process.cwd();
-}
+export { knownWorkspaceRoots, resolveProjectRoot, setWorkspaceRoot } from "./project-roots.js";
 
 interface ExecOutcome {
   exit: number;

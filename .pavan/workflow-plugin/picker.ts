@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { asStringRecord, optionalString } from "./guards.js";
 import { loadRoles, type RolesTable } from "./roles-config.js";
 import { ROLE_ORDER, type RoleId } from "./roles.js";
-import { resolveProjectRoot } from "./tools.js";
+import { resolveProjectRoot } from "./project-roots.js";
 
 const modelsCache = new Map<string, { at: number; ids: string[] }>();
 const CATALOG_TTL_MS = 5 * 60 * 1000;

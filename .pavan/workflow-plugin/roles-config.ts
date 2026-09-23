@@ -12,8 +12,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveProjectRoot } from "./tools.js";
-import { ROLE_ORDER, type ModelRoute, type RoleId } from "./roles.js";
+import { resolveProjectRoot } from "./project-roots";
+import { ROLE_ORDER, type ModelRoute, type RoleId } from "./roles";
 
 export const PROJECT_ROLES_FILE = ".cline/workflow-roles.yaml";
 export const GLOBAL_ROLES_FILE = join(homedir(), ".cline", "workflow-roles.yaml");

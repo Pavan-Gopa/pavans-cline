@@ -696,17 +696,33 @@ export default function Home() {
 	);
 	// [+pavan] Workflow board file bridge: reads via pavan_read_workspace_files,
 	// roles writes via pavan_write_workflow_roles (sidecar/commands-pavan.ts).
-	// Stable identity ([]) so the pane never refetches on unrelated renders.
+	// Stable identity ([]) so the pane never refetches on unrelated renders;
+	// the live folder rides in a ref (binding root in the packaged app is the
+	// filesystem root, so every invoke carries the real workspace explicitly).
+	const boardWorkspaceRef = useRef("");
 	const pavanFileBridge = useMemo(
 		() => ({
 			readFile: async (absPath: string): Promise<string | null> => {
 				const res = await desktopClient.invoke<{
 					files: Record<string, string | null>;
-				}>("pavan_read_workspace_files", { paths: [absPath] });
+				}>("pavan_read_workspace_files", {
+					paths: [absPath],
+					workspaceRoot: boardWorkspaceRef.current,
+				});
 				return res.files[absPath] ?? null;
 			},
 			writeFile: async (_absPath: string, content: string): Promise<void> => {
-				await desktopClient.invoke("pavan_write_workflow_roles", { content });
+				await desktopClient.invoke("pavan_write_workflow_roles", {
+					content,
+					workspaceRoot: boardWorkspaceRef.current,
+				});
+			},
+			setupProject: async (): Promise<{ ok: boolean; created: string[]; error?: string }> => {
+				const res = await desktopClient.invoke<{ ok: boolean; created: string[] }>(
+					"pavan_setup_workflow",
+					{ workspaceRoot: boardWorkspaceRef.current },
+				);
+				return res;
 			},
 		}),
 		[],
@@ -717,15 +733,16 @@ export default function Home() {
 				return;
 			}
 			// [+pavan] Alt+W — workflow board; Alt+M — workflow roles.
-			// Plain Alt (no Cmd/Ctrl), so neither collides with their
-			// Cmd/Ctrl+P/N/, shortcuts below.
+			// Physical codes, not key letters: on macOS Option+W types "∑"
+			// (Option+M "µ"), so event.key never equals "w"/"m" there.
+			// Codes are layout-independent — Russian layout works too.
 			if (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
-				if (event.key === "w" || event.key === "W" || event.key === "ц" || event.key === "Ц") {
+				if (event.code === "KeyW") {
 					event.preventDefault();
 					handleViewChange("workflow");
 					return;
 				}
-				if (event.key === "m" || event.key === "M" || event.key === "ь" || event.key === "Ь") {
+				if (event.code === "KeyM") {
 					event.preventDefault();
 					handleSettingsSectionChange("Roles");
 					return;
@@ -838,7 +855,6 @@ export default function Home() {
 			}),
 		[handleNewThread, handleOpenSessionById, handleViewChange],
 	);
-
 	const historyWorkspacePaths = useMemo(
 		() =>
 			workspacePathsFromSessions(
@@ -847,6 +863,15 @@ export default function Home() {
 			),
 		[activeEnvironmentId, activeThread?.environmentId, sessionHistory.sessions],
 	);
+	// [+pavan] Board folder: active session's folder first (the project the
+	// user opened and chats in), session-history best guess second. Never the
+	// sidecar boot root — every pavan invoke carries this explicitly (ref).
+	const boardWorkspace =
+		activeThread?.historySession?.workspaceRoot?.trim() ||
+		activeThread?.historySession?.cwd?.trim() ||
+		historyWorkspacePaths[0] ||
+		"";
+	boardWorkspaceRef.current = boardWorkspace;
 	// A child agent session names its parent, but only the history list knows the
 	// parent's title — resolve it here so the chat header can point back to it.
 	const activeParentSession = useMemo(() => {
@@ -913,12 +938,12 @@ export default function Home() {
 							<SidebarTrigger className="absolute left-20 top-0 z-40 md:hidden" />
 							<WindowTitleBar />
 							<div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-								{/* [+pavan] Workflow board (Alt+W). Workspace = active thread's
-								environment path (history first), else local root. File bridge:
+								{/* [+pavan] Workflow board (Alt+W). Workspace = active
+								session's folder, else history guess. File bridge:
 								pavan_read_workspace_files / pavan_write_workflow_roles. */}
 								{view === "workflow" ? (
 									<WorkflowBoardPane
-										workspace={historyWorkspacePaths[0] ?? ""}
+										workspace={boardWorkspace}
 										io={pavanFileBridge}
 										onOpenProviders={() => handleSettingsSectionChange("API Providers")}
 									/>
