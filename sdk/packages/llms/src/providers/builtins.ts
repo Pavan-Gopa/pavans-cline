@@ -827,7 +827,7 @@ const OPENAI_COMPATIBLE_SPEC_OVERRIDES: BuiltinSpecOverride[] = [
 		description: "Grok SuperGrok / X Premium subscription access uses an OAuth device code flow — no API key.",
 		family: "xai-oauth",
 		capabilities: ["reasoning", "oauth"],
-		defaultModelId: "grok-4.5",
+		defaultModelId: "grok-4.7",
 		defaults: { baseUrl: "https://api.x.ai/v1" },
 		configFields: [],
 		metadata: { usageCostDisplay: "subscription" },

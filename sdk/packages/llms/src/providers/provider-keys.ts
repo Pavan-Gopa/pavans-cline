@@ -50,6 +50,9 @@ const PROVIDER_IDS_MAP: ReadonlyArray<{
 		generatedProviderId: "deepseek",
 		runtimeProviderId: "deepseek",
 	},
+	// [+pavan] Grok subscription reads the same models.dev catalog as the API
+	// provider. Transport stays OAuth; the model list (grok-4.7, 4.6, …) does not.
+	{ modelsDevKey: "xai", generatedProviderId: "xai", runtimeProviderId: "xai-oauth" },
 	{ modelsDevKey: "xai", generatedProviderId: "xai" },
 	{
 		modelsDevKey: "togetherai",
