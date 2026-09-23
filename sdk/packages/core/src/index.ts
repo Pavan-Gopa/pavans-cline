@@ -174,8 +174,13 @@ export {
 	refreshXaiToken,
 } from "./auth/xai";
 export {
+	AntigravityTokenError,
+	getValidAntigravityCredentials,
+	loginAntigravity,
+	refreshAntigravityToken,
+} from "./auth/antigravity";
+export {
 	formatProviderOAuthApiKey,
-	getPersistedProviderApiKey,
 	getProviderAuthHandler,
 	getProviderAuthStorageId,
 	getProviderOAuthCredentialsFromSettings,
