@@ -125,6 +125,11 @@ const PROVIDER_IDS_MAP: ReadonlyArray<{
 		runtimeProviderId: "cline",
 	},
 	{
+		modelsDevKey: "aiand",
+		generatedProviderId: "aiand",
+		runtimeProviderId: "aiand",
+	},
+	{
 		modelsDevKey: "aihubmix",
 		generatedProviderId: "aihubmix",
 		runtimeProviderId: "aihubmix",
