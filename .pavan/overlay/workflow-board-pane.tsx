@@ -268,7 +268,6 @@ export function WorkflowBoardPane(props: {
   // Also preloads model lists for restored providers.
   useEffect(() => {
     if (!snapshot) return;
-    const needed: string[] = [];
     setPick((prev) => {
       const next = { ...prev };
       for (const r of WORKFLOW_ROLE_IDS) {
@@ -279,11 +278,20 @@ export function WorkflowBoardPane(props: {
         const model = i < 0 ? "" : cur.slice(i + 1);
         if (!provider && !model) continue;
         next[r] = { provider, model, reasoning: snapshot.roles[r]?.primaryReasoning || undefined };
-        if (provider) needed.push(provider);
       }
       return next;
     });
-    for (const p of [...new Set(needed)]) void loadModels(p);
+    // Providers come straight from the snapshot — never via the updater
+    // above (React may defer updaters, so a side-channel array filled inside
+    // would still be empty here and model lists would never preload).
+    const providers = [...new Set(
+      WORKFLOW_ROLE_IDS.map((r) => {
+        const cur = snapshot.roles[r]?.primary ?? "";
+        const i = cur.indexOf("/");
+        return i < 0 ? cur : cur.slice(0, i);
+      }).filter((p) => p.length > 0),
+    )];
+    for (const p of providers) void loadModels(p);
   }, [snapshot, loadModels]);
 
   const onSave = useCallback(
